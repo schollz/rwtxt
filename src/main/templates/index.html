@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>000-asaksjdfas-asldkfjaskldjf</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        [contenteditable]:focus {
+            outline: 0px solid transparent;
+        }
+
+        .main {
+            font-family: "Times New Roman", Times, serif;
+            margin: 1em auto;
+            font-size: 1.3rem;
+            max-width: 32em;
+            line-height: 1.3;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            /* css-3 */
+            white-space: -moz-pre-wrap;
+            /* Mozilla, since 1999 */
+            white-space: -pre-wrap;
+            /* Opera 4-6 */
+            white-space: -o-pre-wrap;
+            /* Opera 7 */
+            word-wrap: break-word;
+            /* Internet Explorer 5.5+ */
+        }
+
+        code {
+            font-size: 70%;
+            line-height: 70%;
+        }
+        
+        .fr {
+            float:right;
+        }
+
+        @media screen and (min-width: 0em) and (max-width: 30em) {
+            .main {
+                font-size: 1.1rem;
+                margin-left: 0.1em;
+                margin-right: 0.1em;
+            }
+        }
+
+        @media screen and (min-width: 30em) and (max-width: 60em) {
+            .main {
+                font-size: 1.2rem;
+                margin-left: 1em;
+                margin-right: 1em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main" id="rendered">
+        {{.Rendered}}
+    </div>
+    <pre class="main" contenteditable="false" id="editable" style="display:none;">
+{{.File.Data}}
+    </pre>
+    <script>
+        // websockets 
+        var socket;
+        const socketMessageListener = (event) => {
+            console.log(event);
+        };
+        const socketOpenListener = (event) => {
+            console.log('Connected');
+        };
+        const socketCloseListener = (event) => {
+            if (socket) {
+                console.error('Disconnected.');
+            }
+            var url = window.origin.replace("http", "ws") + '/ws';
+            socket = new WebSocket(url);
+            socket.addEventListener('open', socketOpenListener);
+            socket.addEventListener('message', socketMessageListener);
+            socket.addEventListener('close', socketCloseListener);
+        };
+
+
+        // slugify the current text
+        function slugify(text) {
+            var lines = text.split('\n');
+            for (var i = 0; i < lines.length; i++) {
+                var slug = lines[i].toString().toLowerCase()
+                    .replace(/\s+/g, '-') // Replace spaces with -
+                    .replace(/[^\w\-]+/g, '') // Remove all non-word chars
+                    .replace(/\-\-+/g, '-') // Replace multiple - with single -
+                    .replace(/^-+/, '') // Trim - from start of text
+                    .replace(/-+$/, ''); // Trim - from end of text
+                if (slug.length > 1) {
+                    return slug;
+                }
+            }
+            return "";
+        }
+
+        // replace all function
+        String.prototype.replaceAll = function (search, replacement) {
+            var target = this;
+            return target.replace(new RegExp(search, 'g'), replacement);
+        };
+
+        var div = document.getElementById('editable');
+        setTimeout(function () {
+            div.focus();
+        }, 0);
+
+        var JD = {};
+        JD.debounce = function (func, wait, immediate) {
+            var timeout;
+            return function () {
+                var context = this,
+                    args = arguments;
+                var later = function () {
+                    timeout = null;
+                    if (!immediate) {
+                        func.apply(context, args);
+                    }
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait || 200);
+                if (callNow) {
+                    func.apply(context, args);
+                }
+            };
+        };
+
+        JD.contentEdited = function () {
+            console.log('John');
+            var markdown = document.getElementById("editable").innerHTML.replaceAll("<br>", "\n");
+            var slug = slugify(markdown);
+            if (slug.length > 0 && "/" + slug != window.location.pathname) {
+                history.pushState({}, slug, slug);
+            }
+            socket.send(JSON.stringify({
+                "id": "{{.File.ID}}",
+                "slug": slugify(markdown),
+                "data": markdown,
+            }));
+
+        };
+
+        JD.loadEditor = function (e) {
+            e.preventDefault();
+            socketCloseListener();
+            d = document.getElementById("rendered")
+            d.innerHTML = "";
+            editor = document.getElementById("editable")
+            editor.contentEditable = "true";
+            editor.style.display = '';
+            editor.focus();
+            console.log('loading editor');
+        };
+
+        document.getElementById("editable").addEventListener('input', JD.debounce(JD.contentEdited, 300));
+        document.getElementById("editlink").addEventListener("click", JD.loadEditor);
+    </script>
+</body>
+
+</html>
