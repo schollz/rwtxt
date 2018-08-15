@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	introText = "Click here and start writing in Markdown. Reload the page to render."
+	introText = ""
 )
 
 func main() {
