@@ -230,7 +230,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	// check if exists in fts
 	sqlStmt := "INSERT INTO fts(data,id) VALUES (?,?)"
 	var ftsHasID bool
-	ftsHasID, err = fs.doesExist(f.ID)
+	ftsHasID, err = fs.idExists(f.ID)
 	if err != nil {
 		return errors.Wrap(err, "doesExist")
 	}
@@ -325,18 +325,20 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE id = ? ORDER BY modified DESC`, id)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id = ? ORDER BY modified DESC`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Stat")
+		return
 	}
 	if len(files) > 0 {
 		return
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE slug = ? ORDER BY modified DESC`, id)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id IN (SELECT id FROM fs WHERE slug=?) ORDER BY modified DESC`, id)
 	if err != nil {
-		err = errors.Wrap(err, "Stat")
+		err = errors.Wrap(err, "get from slug")
+		return
 	}
 	if len(files) > 0 {
 		return
@@ -346,7 +348,20 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	return
 }
 
-// Exists returns whether specified file exists
+// Exists returns whether specified ID exists exists
+func (fs *FileSystem) idExists(id string) (exists bool, err error) {
+	files, err := fs.getAllFromPreparedQuerySingleString(`
+		SELECT id FROM fts WHERE id = ?`, id)
+	if err != nil {
+		err = errors.Wrap(err, "Exists")
+	}
+	if len(files) > 0 {
+		exists = true
+	}
+	return
+}
+
+// Exists returns whether specified id or slug exists
 func (fs *FileSystem) Exists(id string) (exists bool, err error) {
 	fs.Lock()
 	defer fs.Unlock()
@@ -356,13 +371,8 @@ func (fs *FileSystem) Exists(id string) (exists bool, err error) {
 	if err != nil {
 		return
 	}
-	return fs.doesExist(id)
-}
-
-func (fs *FileSystem) doesExist(id string) (exists bool, err error) {
-
 	files, err := fs.getAllFromPreparedQuerySingleString(`
-		SELECT id FROM fts WHERE id = ?`, id)
+		SELECT id FROM fs WHERE id = ?`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 	}
@@ -372,7 +382,7 @@ func (fs *FileSystem) doesExist(id string) (exists bool, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuerySingleString(`
-	SELECT id FROM fts WHERE slug = ?`, id)
+	SELECT id FROM fs WHERE slug = ?`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 	}
