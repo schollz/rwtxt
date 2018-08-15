@@ -24,8 +24,8 @@ func UUID() string {
 func RenderMarkdownToHTML(markdown string) template.HTML {
 	html := string(blackfriday.Run([]byte(markdown)))
 	p := bluemonday.UGCPolicy()
-	p.AllowAttrs("style").OnElements("a")
 	p.AllowAttrs("href").OnElements("a")
+	p.AllowAttrs("class").OnElements("a")
 	p.AllowElements("p")
 	html = p.Sanitize(html)
 

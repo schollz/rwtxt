@@ -112,7 +112,7 @@ The simplest way to take notes.
 					log.Fatal(err)
 				}
 				if len(files) > 1 {
-					initialMarkdown = fmt.Sprintf("# Found %d '%s'\n\n", len(files), page)
+					initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
 					for _, fi := range files {
 						snippet := fi.Data
 						if len(snippet) > 50 {
