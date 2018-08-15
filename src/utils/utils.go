@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/teris-io/shortid"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
@@ -22,7 +23,11 @@ func UUID() string {
 
 func RenderMarkdownToHTML(markdown string) template.HTML {
 	html := string(blackfriday.Run([]byte(markdown)))
-	// p := bluemonday.UGCPolicy()
-	// html = p.Sanitize(html)
+	p := bluemonday.UGCPolicy()
+	p.AllowAttrs("style").OnElements("a")
+	p.AllowAttrs("href").OnElements("a")
+	p.AllowElements("p")
+	html = p.Sanitize(html)
+
 	return template.HTML(html)
 }
