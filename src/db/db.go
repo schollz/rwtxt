@@ -348,6 +348,22 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	return
 }
 
+// Find returns the info from a file
+func (fs *FileSystem) Find(text string) (files []File, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	defer fs.finishTransaction()
+	err = fs.startTransaction(true)
+	if err != nil {
+		return
+	}
+
+	files, err = fs.getAllFromPreparedQuery(`
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id = (SELECT id FROM fts WHERE data match ?) ORDER BY modified DESC`, text)
+	return
+}
+
 // Exists returns whether specified ID exists exists
 func (fs *FileSystem) idExists(id string) (exists bool, err error) {
 	files, err := fs.getAllFromPreparedQuerySingleString(`

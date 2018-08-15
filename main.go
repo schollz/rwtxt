@@ -50,6 +50,31 @@ func serve() (err error) {
 	r := gin.Default()
 	r.LoadHTMLGlob("templates/*")
 	r.GET("/", func(cg *gin.Context) {
+		query := cg.DefaultQuery("q", "")
+		if query != "" {
+			files, err := fs.Find(query)
+			if err != nil {
+				log.Fatal(err)
+			}
+			initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
+			for _, fi := range files {
+				snippet := fi.Data
+				if len(snippet) > 50 {
+					snippet = snippet[:50]
+				}
+				reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
+				snippet = strings.Replace(snippet, "\n", " ", -1)
+				snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
+				initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+			}
+			cg.HTML(http.StatusOK, "index.html", gin.H{
+				"Title":    query + " pages",
+				"Page":     query,
+				"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
+			})
+			return
+			return
+		}
 		cg.HTML(http.StatusOK, "index.html", gin.H{
 			"Rendered": utils.RenderMarkdownToHTML(fmt.Sprintf(`
 
@@ -63,7 +88,6 @@ The simplest way to take notes.
 	})
 	r.GET("/:page", func(cg *gin.Context) {
 		page := cg.Param("page")
-
 		if page == "ws" {
 			// handle websockets on this page
 			c, err := wsupgrader.Upgrade(cg.Writer, cg.Request, nil)
