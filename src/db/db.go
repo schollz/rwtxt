@@ -109,6 +109,14 @@ func (fs *FileSystem) initializeDB() (err error) {
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating table")
+		return
+	}
+
+	sqlStmt = `CREATE VIRTUAL TABLE 
+		fts USING fts5 (id,data);`
+	_, err = fs.db.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating virtual table")
 	}
 	return
 }
@@ -161,13 +169,11 @@ func (fs *FileSystem) Save(f File) (err error) {
 		id, 
 		slug,
 		created,
-		modified,
-		data
+		modified
 	) 
 		values 	
 	(
 		?, 
-		?,
 		?,
 		?,
 		?
@@ -181,7 +187,6 @@ func (fs *FileSystem) Save(f File) (err error) {
 		f.Slug,
 		f.Created,
 		time.Now(),
-		f.Data,
 	)
 	if err != nil {
 		return errors.Wrap(err, "exec Save")
@@ -200,8 +205,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	stmt2, err := tx2.Prepare(`
 	UPDATE fs SET 
 		slug = ?,
-		modified = ?,
-		data = ?
+		modified = ?
 	WHERE
 		id = ?
 	`)
@@ -213,7 +217,6 @@ func (fs *FileSystem) Save(f File) (err error) {
 	_, err = stmt2.Exec(
 		f.Slug,
 		time.Now(),
-		f.Data,
 		f.ID,
 	)
 	if err != nil {
@@ -222,6 +225,40 @@ func (fs *FileSystem) Save(f File) (err error) {
 	err = tx2.Commit()
 	if err != nil {
 		return errors.Wrap(err, "commit update")
+	}
+
+	// check if exists in fts
+	sqlStmt := "INSERT INTO fts(data,id) VALUES (?,?)"
+	var ftsHasID bool
+	ftsHasID, err = fs.doesExist(f.ID)
+	if err != nil {
+		return errors.Wrap(err, "doesExist")
+	}
+	if ftsHasID {
+		sqlStmt = "UPDATE fts SET data=? WHERE id=?"
+	}
+
+	// update the index
+	tx3, err := fs.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin virtual Save")
+	}
+	stmt3, err := tx3.Prepare(sqlStmt)
+	if err != nil {
+		return errors.Wrap(err, "stmt virtual update")
+	}
+	defer stmt3.Close()
+
+	_, err = stmt3.Exec(
+		f.Data,
+		f.ID,
+	)
+	if err != nil {
+		return errors.Wrap(err, "exec virtual update")
+	}
+	err = tx3.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit virtual update")
 	}
 	return
 
@@ -276,19 +313,6 @@ func (fs *FileSystem) Len() (l int, err error) {
 	return
 }
 
-func (fs *FileSystem) Index() (err error) {
-	fs.Lock()
-	defer fs.Unlock()
-
-	defer fs.finishTransaction()
-	err = fs.startTransaction(true)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
 // Get returns the info from a file
 func (fs *FileSystem) Get(id string) (files []File, err error) {
 	fs.Lock()
@@ -301,7 +325,7 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT * FROM fs WHERE id = ? ORDER BY modified DESC`, id)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE id = ? ORDER BY modified DESC`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Stat")
 	}
@@ -310,7 +334,7 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT * FROM fs WHERE slug = ? ORDER BY modified DESC`, id)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE slug = ? ORDER BY modified DESC`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Stat")
 	}
@@ -332,9 +356,13 @@ func (fs *FileSystem) Exists(id string) (exists bool, err error) {
 	if err != nil {
 		return
 	}
+	return fs.doesExist(id)
+}
 
-	files, err := fs.getAllFromPreparedQuery(`
-		SELECT * FROM fs WHERE id = ?`, id)
+func (fs *FileSystem) doesExist(id string) (exists bool, err error) {
+
+	files, err := fs.getAllFromPreparedQuerySingleString(`
+		SELECT id FROM fts WHERE id = ?`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 	}
@@ -343,8 +371,8 @@ func (fs *FileSystem) Exists(id string) (exists bool, err error) {
 		return
 	}
 
-	files, err = fs.getAllFromPreparedQuery(`
-	SELECT * FROM fs WHERE slug = ?`, id)
+	files, err = fs.getAllFromPreparedQuerySingleString(`
+	SELECT id FROM fts WHERE slug = ?`, id)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 	}
@@ -387,6 +415,42 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 			return
 		}
 		files = append(files, f)
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errors.Wrap(err, "getRows")
+	}
+	return
+}
+
+func (fs *FileSystem) getAllFromPreparedQuerySingleString(query string, args ...interface{}) (s []string, err error) {
+	// prepare statement
+	stmt, err := fs.db.Prepare(query)
+	if err != nil {
+		err = errors.Wrap(err, "preparing query: "+query)
+		return
+	}
+
+	defer stmt.Close()
+	rows, err := stmt.Query(args...)
+	if err != nil {
+		err = errors.Wrap(err, query)
+		return
+	}
+
+	// loop through rows
+	defer rows.Close()
+	s = []string{}
+	for rows.Next() {
+		var stemp string
+		err = rows.Scan(
+			&stemp,
+		)
+		if err != nil {
+			err = errors.Wrap(err, "getRows")
+			return
+		}
+		s = append(s, stemp)
 	}
 	err = rows.Err()
 	if err != nil {

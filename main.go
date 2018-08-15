@@ -42,13 +42,9 @@ var wsupgrader = websocket.Upgrader{
 func serve() (err error) {
 	fs, err := db.New("cowyo2.db")
 	if err != nil {
+		log.Fatal(err)
 		return
 	}
-
-	// peridiocally update the full text search
-	go func() {
-
-	}()
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
@@ -113,11 +109,8 @@ The simplest way to take notes.
 			// handle new page
 			// get edit url parameter
 			log.Printf("loading %s", page)
-			havePage, err := fs.Exists(page)
+			havePage, _ := fs.Exists(page)
 			initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
-			if err != nil {
-				log.Fatal(err)
-			}
 			var f db.File
 			if havePage {
 				var files []db.File
@@ -154,7 +147,10 @@ The simplest way to take notes.
 				}
 				f.Slug = page
 				f.Data = introText
-				fs.Save(f)
+				err = fs.Save(f)
+				if err != nil {
+					log.Fatal(err)
+				}
 				cg.Redirect(302, "/"+page+"?edit=1")
 			}
 			initialMarkdown += "\n\n" + f.Data
