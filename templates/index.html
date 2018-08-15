@@ -71,14 +71,38 @@
     <div class="main" id="rendered">
         {{.Rendered}}
     </div>
-    <pre class="main" contenteditable="false" id="editable" style="display:none;">
-{{.File.Data}}
+    <pre class="main" contenteditable="false" id="editable" style="display:none;" autofocus>
+ {{.File.Data}}
     </pre>
     <script>
+
+        function setEndOfContenteditable(contentEditableElement)
+{
+    var range,selection;
+    if(document.createRange)//Firefox, Chrome, Opera, Safari, IE 9+
+    {
+        range = document.createRange();//Create a range (a range is a like the selection but invisible)
+        range.selectNodeContents(contentEditableElement);//Select the entire contents of the element with the range
+        range.collapse(false);//collapse the range to the end point. false means collapse to end rather than the start
+        selection = window.getSelection();//get the selection object (allows you to change selection)
+        selection.removeAllRanges();//remove any selections already made
+        selection.addRange(range);//make the range you have just created the visible selection
+    }
+    else if(document.selection)//IE 8 and lower
+    { 
+        range = document.body.createTextRange();//Create a range (a range is a like the selection but invisible)
+        range.moveToElementText(contentEditableElement);//Select the entire contents of the element with the range
+        range.collapse(false);//collapse the range to the end point. false means collapse to end rather than the start
+        range.select();//Select the range (make it the visible selection
+    }
+}
+
+
         // websockets 
         var socket;
         const socketMessageListener = (event) => {
             console.log(event);
+            JD.serverResponse(event.data);
         };
         const socketOpenListener = (event) => {
             console.log('Connected');
@@ -94,6 +118,17 @@
             socket.addEventListener('close', socketCloseListener);
         };
 
+        // get URL query parameters 
+        function getParameterByName(name, url) {
+            if (!url) url = window.location.href;
+            name = name.replace(/[\[\]]/g, '\\$&');
+            var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        }
+        
 
         // slugify the current text
         function slugify(text) {
@@ -148,9 +183,6 @@
             console.log('John');
             var markdown = document.getElementById("editable").innerText.replaceAll("<br>", "\n");
             var slug = slugify(markdown);
-            if (slug.length > 0 && "/" + slug != window.location.pathname) {
-                history.pushState({}, slug, slug);
-            }
             socket.send(JSON.stringify({
                 "id": "{{.File.ID}}",
                 "slug": slugify(markdown),
@@ -159,8 +191,28 @@
 
         };
 
-        JD.loadEditor = function (e) {
+        JD.serverResponse = function (jsonString) {
+            var data = JSON.parse(jsonString);
+            if (data.message == "unique_slug") {
+                var newwindowname = ""
+                if (data.success) {
+                    newwindowname = data.slug;
+                } else {
+                    newwindowname = data.id;
+                }
+                console.log(newwindowname);
+                if (newwindowname != undefined && newwindowname.length > 0 && "/" + newwindowname != window.location.pathname) {
+                    history.pushState({}, newwindowname, newwindowname);
+                }
+            }
+        }
+
+        JD.editClick = function(e) {
             e.preventDefault();
+            JD.loadEditor();
+        }
+
+        JD.loadEditor = function () {
             socketCloseListener();
             d = document.getElementById("rendered")
             d.innerHTML = "";
@@ -172,13 +224,25 @@
         };
 
         document.getElementById("editable").addEventListener('input', JD.debounce(JD.contentEdited, 300));
-        document.getElementById("editlink").addEventListener("click", JD.loadEditor);
+        
+        editlink = document.getElementById("editlink")
+        if (editlink != null) {
+            editlink.addEventListener("click", JD.loadEditor);
+        }
+        
         // allow only pasting plain text
         document.getElementById("editable").addEventListener("paste", function (e) {
             e.preventDefault();
             var text = e.clipboardData.getData("text/plain");
             document.execCommand("insertHTML", false, text);
         });
+
+        // if editing, go to edit page
+        if (getParameterByName("edit") != null) {
+            JD.loadEditor();
+        }
+
+        
     </script>
 </body>
 

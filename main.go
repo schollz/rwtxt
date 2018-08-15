@@ -23,7 +23,7 @@ type Payload struct {
 	Data    string `json:"data,omitempty"`
 	Slug    string `json:"slug,omitempty"`
 	Message string `json:"message,omitempty"`
-	Success bool   `json:"success,omitempty"`
+	Success bool   `json:"success"`
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -46,7 +46,7 @@ func serve() (err error) {
 		cg.HTML(http.StatusOK, "index.html", gin.H{
 			"Rendered": utils.RenderMarkdownToHTML(fmt.Sprintf(`
 
-<a href='/%s' class='fr'>New</a>
+<a href='/%s?edit=1' class='fr'>New</a>
 
 # cowyo2 
 
@@ -85,19 +85,22 @@ The simplest way to take notes.
 					if err != nil {
 						log.Println(err)
 					}
-				}
-
-				err = c.WriteJSON(Payload{
-					Message: "got it",
-					Success: true,
-				})
-				if err != nil {
-					log.Println("write:", err)
-					break
+					fs, _ := fs.Get(p.Slug)
+					err = c.WriteJSON(Payload{
+						ID:      p.ID,
+						Slug:    p.Slug,
+						Message: "unique_slug",
+						Success: len(fs) < 2,
+					})
+					if err != nil {
+						log.Println("write:", err)
+						break
+					}
 				}
 			}
 		} else {
 			// handle new page
+			// get edit url parameter
 			log.Printf("loading %s", page)
 			havePage, err := fs.Exists(page)
 			initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
@@ -112,7 +115,7 @@ The simplest way to take notes.
 					log.Fatal(err)
 				}
 				if len(files) > 1 {
-					initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
+					initialMarkdown = fmt.Sprintf("<a href='/%s?edit=1' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
 					for _, fi := range files {
 						snippet := fi.Data
 						if len(snippet) > 50 {
@@ -132,7 +135,15 @@ The simplest way to take notes.
 					f = files[0]
 				}
 			} else {
-				f = fs.NewFile(page, "# "+page+"\n")
+				f = db.File{
+					ID:       utils.UUID(),
+					Created:  time.Now(),
+					Modified: time.Now(),
+				}
+				f.Slug = f.ID
+				f.Data = ""
+				fs.Save(f)
+				cg.Redirect(302, "/"+f.Slug+"?edit=1")
 			}
 			initialMarkdown += "\n\n" + f.Data
 

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -18,7 +19,7 @@ func UUID() string {
 	if err != nil {
 		panic(err)
 	}
-	return s
+	return strings.ToLower(s)
 }
 
 func RenderMarkdownToHTML(markdown string) template.HTML {
