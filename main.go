@@ -141,9 +141,9 @@ The simplest way to take notes.
 					Modified: time.Now(),
 				}
 				f.Slug = f.ID
-				f.Data = f.ID
+				f.Data = "Click here to start editing."
 				fs.Save(f)
-				cg.Redirect(302, "/"+f.Slug+"")
+				cg.Redirect(302, "/"+f.Slug+"?edit=1")
 			}
 			initialMarkdown += "\n\n" + f.Data
 

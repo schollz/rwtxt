@@ -238,7 +238,14 @@
             document.execCommand("insertHTML", false, text);
         });
 
-        document.getElementById("editable").addEventListener('focusin', function(e) { console.log('focusin!')})
+        document.getElementById("editable").addEventListener('focusin', function(e) { console.log('focusin!')
+    
+        editor = document.getElementById("editable");
+        console.log('['+editor.innerText.trim()+']');
+        if (editor.innerText.trim() == "Click here to start editing.") {
+            editor.innerText = "";
+        }
+        })
 
         // if editing, go to edit page
         if (getParameterByName("edit") != null) {
