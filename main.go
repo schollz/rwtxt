@@ -46,7 +46,7 @@ func serve() (err error) {
 		cg.HTML(http.StatusOK, "index.html", gin.H{
 			"Rendered": utils.RenderMarkdownToHTML(fmt.Sprintf(`
 
-<a href='/%s?edit=1' class='fr'>New</a>
+<a href='/%s' class='fr'>New</a>
 
 # cowyo2 
 
@@ -79,7 +79,7 @@ The simplest way to take notes.
 					err = fs.Save(db.File{
 						ID:      p.ID,
 						Slug:    p.Slug,
-						Data:    p.Data,
+						Data:    strings.TrimSpace(p.Data),
 						Created: time.Now(),
 					})
 					if err != nil {
@@ -115,7 +115,7 @@ The simplest way to take notes.
 					log.Fatal(err)
 				}
 				if len(files) > 1 {
-					initialMarkdown = fmt.Sprintf("<a href='/%s?edit=1' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
+					initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
 					for _, fi := range files {
 						snippet := fi.Data
 						if len(snippet) > 50 {
@@ -141,9 +141,9 @@ The simplest way to take notes.
 					Modified: time.Now(),
 				}
 				f.Slug = f.ID
-				f.Data = ""
+				f.Data = f.ID
 				fs.Save(f)
-				cg.Redirect(302, "/"+f.Slug+"?edit=1")
+				cg.Redirect(302, "/"+f.Slug+"")
 			}
 			initialMarkdown += "\n\n" + f.Data
 

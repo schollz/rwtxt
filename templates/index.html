@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>000-asaksjdfas-asldkfjaskldjf</title>
+    <title>{{.Title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         [contenteditable]:focus {
@@ -71,9 +71,8 @@
     <div class="main" id="rendered">
         {{.Rendered}}
     </div>
-    <pre class="main" contenteditable="false" id="editable" style="display:none;" autofocus>
- {{.File.Data}}
-    </pre>
+<pre class="main" contenteditable="false" id="editable" style="display:none;" autofocus>{{.File.Data}}
+</pre>
     <script>
 
         function setEndOfContenteditable(contentEditableElement)
@@ -203,6 +202,7 @@
                 console.log(newwindowname);
                 if (newwindowname != undefined && newwindowname.length > 0 && "/" + newwindowname != window.location.pathname) {
                     history.pushState({}, newwindowname, newwindowname);
+                    document.title = newwindowname;
                 }
             }
         }
@@ -220,6 +220,7 @@
             editor.contentEditable = "true";
             editor.style.display = '';
             editor.focus();
+            setEndOfContenteditable(editor);
             console.log('loading editor');
         };
 
@@ -237,9 +238,12 @@
             document.execCommand("insertHTML", false, text);
         });
 
+        document.getElementById("editable").addEventListener('focusin', function(e) { console.log('focusin!')})
+
         // if editing, go to edit page
         if (getParameterByName("edit") != null) {
             JD.loadEditor();
+            document.getElementById("editable").focus();
         }
 
         
