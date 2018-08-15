@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"regexp"
@@ -12,6 +13,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/schollz/cowyo2/src/db"
 	"github.com/schollz/cowyo2/src/utils"
+)
+
+const (
+	introText = "Click here and start writing in Markdown. Reload the page to render."
 )
 
 func main() {
@@ -39,6 +44,12 @@ func serve() (err error) {
 	if err != nil {
 		return
 	}
+
+	// peridiocally update the full text search
+	go func() {
+
+	}()
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.LoadHTMLGlob("templates/*")
@@ -127,6 +138,7 @@ The simplest way to take notes.
 						initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
 					}
 					cg.HTML(http.StatusOK, "index.html", gin.H{
+						"Title":    page + " pages",
 						"Page":     page,
 						"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
 					})
@@ -141,20 +153,18 @@ The simplest way to take notes.
 					Modified: time.Now(),
 				}
 				f.Slug = page
-				f.Data = "# " + page + "\n"
-				log.Println(f.Slug, f.Data)
-				if f.Slug == f.ID {
-					f.Data = "Click here to start editing."
-				}
+				f.Data = introText
 				fs.Save(f)
 				cg.Redirect(302, "/"+page+"?edit=1")
 			}
 			initialMarkdown += "\n\n" + f.Data
 
 			cg.HTML(http.StatusOK, "index.html", gin.H{
-				"Page":     page,
-				"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
-				"File":     f,
+				"Page":      page,
+				"Rendered":  utils.RenderMarkdownToHTML(initialMarkdown),
+				"File":      f,
+				"IntroText": template.JS(introText),
+				"Title":     f.Slug,
 			})
 		}
 	})

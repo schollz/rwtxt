@@ -276,6 +276,19 @@ func (fs *FileSystem) Len() (l int, err error) {
 	return
 }
 
+func (fs *FileSystem) Index() (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	defer fs.finishTransaction()
+	err = fs.startTransaction(true)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 // Get returns the info from a file
 func (fs *FileSystem) Get(id string) (files []File, err error) {
 	fs.Lock()

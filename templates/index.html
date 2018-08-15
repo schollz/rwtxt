@@ -179,7 +179,7 @@
         };
 
         JD.contentEdited = function () {
-            console.log('John');
+            console.log('edited');
             var markdown = document.getElementById("editable").innerText.replaceAll("<br>", "\n");
             var slug = slugify(markdown);
             socket.send(JSON.stringify({
@@ -242,7 +242,7 @@
     
         editor = document.getElementById("editable");
         console.log('['+editor.innerText.trim()+']');
-        if (editor.innerText.trim() == "Click here to start editing.") {
+        if (editor.innerText.trim() == "{{.IntroText}}") {
             editor.innerText = "";
         }
         })
@@ -251,6 +251,7 @@
         if (getParameterByName("edit") != null) {
             JD.loadEditor();
             document.getElementById("editable").focus();
+            history.pushState({}, window.location.pathname, window.location.pathname);
         }
 
         
