@@ -163,6 +163,12 @@
 
         document.getElementById("editable").addEventListener('input', JD.debounce(JD.contentEdited, 300));
         document.getElementById("editlink").addEventListener("click", JD.loadEditor);
+        // allow only pasting plain text
+        document.getElementById("editable").addEventListener("paste", function(e) {
+            e.preventDefault();
+            var text = e.clipboardData.getData("text/plain");
+            document.execCommand("insertHTML", false, text);
+        });
     </script>
 </body>
 

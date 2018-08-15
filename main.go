@@ -14,6 +14,18 @@ import (
 	"github.com/schollz/cowyo2/src/utils"
 )
 
+func main() {
+	serve()
+}
+
+type Payload struct {
+	ID      string `json:"id,omitempty"`
+	Data    string `json:"data,omitempty"`
+	Slug    string `json:"slug,omitempty"`
+	Message string `json:"message,omitempty"`
+	Success bool   `json:"success,omitempty"`
+}
+
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -23,7 +35,7 @@ var wsupgrader = websocket.Upgrader{
 }
 
 func serve() (err error) {
-	fs, err := db.New("test.db")
+	fs, err := db.New("cowyo2.db")
 	if err != nil {
 		return
 	}
