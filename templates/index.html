@@ -71,30 +71,27 @@
     <div class="main" id="rendered">
         {{.Rendered}}
     </div>
-<pre class="main" contenteditable="false" id="editable" style="display:none;" autofocus>{{.File.Data}}
+    <pre class="main" contenteditable="false" id="editable" style="-webkit-user-select:text;display:none;" autofocus>{{.File.Data}}
 </pre>
     <script>
-
-        function setEndOfContenteditable(contentEditableElement)
-{
-    var range,selection;
-    if(document.createRange)//Firefox, Chrome, Opera, Safari, IE 9+
-    {
-        range = document.createRange();//Create a range (a range is a like the selection but invisible)
-        range.selectNodeContents(contentEditableElement);//Select the entire contents of the element with the range
-        range.collapse(false);//collapse the range to the end point. false means collapse to end rather than the start
-        selection = window.getSelection();//get the selection object (allows you to change selection)
-        selection.removeAllRanges();//remove any selections already made
-        selection.addRange(range);//make the range you have just created the visible selection
-    }
-    else if(document.selection)//IE 8 and lower
-    { 
-        range = document.body.createTextRange();//Create a range (a range is a like the selection but invisible)
-        range.moveToElementText(contentEditableElement);//Select the entire contents of the element with the range
-        range.collapse(false);//collapse the range to the end point. false means collapse to end rather than the start
-        range.select();//Select the range (make it the visible selection
-    }
-}
+        function setEndOfContenteditable(contentEditableElement) {
+            var range, selection;
+            if (document.createRange) //Firefox, Chrome, Opera, Safari, IE 9+
+            {
+                range = document.createRange(); //Create a range (a range is a like the selection but invisible)
+                range.selectNodeContents(contentEditableElement); //Select the entire contents of the element with the range
+                range.collapse(false); //collapse the range to the end point. false means collapse to end rather than the start
+                selection = window.getSelection(); //get the selection object (allows you to change selection)
+                selection.removeAllRanges(); //remove any selections already made
+                selection.addRange(range); //make the range you have just created the visible selection
+            } else if (document.selection) //IE 8 and lower
+            {
+                range = document.body.createTextRange(); //Create a range (a range is a like the selection but invisible)
+                range.moveToElementText(contentEditableElement); //Select the entire contents of the element with the range
+                range.collapse(false); //collapse the range to the end point. false means collapse to end rather than the start
+                range.select(); //Select the range (make it the visible selection
+            }
+        }
 
 
         // websockets 
@@ -127,7 +124,7 @@
             if (!results[2]) return '';
             return decodeURIComponent(results[2].replace(/\+/g, ' '));
         }
-        
+
 
         // slugify the current text
         function slugify(text) {
@@ -200,14 +197,15 @@
                     newwindowname = data.id;
                 }
                 console.log(newwindowname);
-                if (newwindowname != undefined && newwindowname.length > 0 && "/" + newwindowname != window.location.pathname) {
+                if (newwindowname != undefined && newwindowname.length > 0 && "/" + newwindowname != window.location
+                    .pathname) {
                     history.pushState({}, newwindowname, newwindowname);
                     document.title = newwindowname;
                 }
             }
         }
 
-        JD.editClick = function(e) {
+        JD.editClick = function (e) {
             e.preventDefault();
             JD.loadEditor();
         }
@@ -218,19 +216,19 @@
             d.innerHTML = "";
             editor = document.getElementById("editable")
             editor.contentEditable = "true";
-            editor.style.display = '';
+            editor.style.display = 'inline-block';
             editor.focus();
             setEndOfContenteditable(editor);
             console.log('loading editor');
         };
 
         document.getElementById("editable").addEventListener('input', JD.debounce(JD.contentEdited, 300));
-        
+
         editlink = document.getElementById("editlink")
         if (editlink != null) {
             editlink.addEventListener("click", JD.loadEditor);
         }
-        
+
         // allow only pasting plain text
         document.getElementById("editable").addEventListener("paste", function (e) {
             e.preventDefault();
@@ -238,13 +236,21 @@
             document.execCommand("insertHTML", false, text);
         });
 
-        document.getElementById("editable").addEventListener('focusin', function(e) { console.log('focusin!')
-    
-        editor = document.getElementById("editable");
-        console.log('['+editor.innerText.trim()+']');
-        if (editor.innerText.trim() == "{{.IntroText}}") {
-            editor.innerText = "";
-        }
+        document.getElementById("editable").addEventListener('focusin', function (e) {
+            console.log('focusin!')
+            editor = document.getElementById("editable");
+            console.log('[' + editor.innerText.trim() + ']');
+            if (editor.innerText.trim() == "{{.IntroText}}") {
+                editor.innerText = " ";
+            }
+        })
+        document.getElementById("editable").addEventListener('keydown', function (e) {
+            console.log('enter!')
+            if (e.keyCode == 13) {
+                e.preventDefault();
+                document.execCommand('insertHTML', false, '<br>');
+                return false;
+            }
         })
 
         // if editing, go to edit page
@@ -253,8 +259,6 @@
             document.getElementById("editable").focus();
             history.pushState({}, window.location.pathname, window.location.pathname);
         }
-
-        
     </script>
 </body>
 

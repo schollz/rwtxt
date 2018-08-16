@@ -1,7 +1,11 @@
 package db
 
 import (
+	"bufio"
+	"compress/gzip"
 	"database/sql"
+	"io/ioutil"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -9,19 +13,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/schollz/cowyo2/src/utils"
-	"github.com/schollz/golock"
 	"github.com/schollz/sqlite3dump"
 )
 
 type FileSystem struct {
-	// options
-	name     string
-	readOnly bool
-
-	db         *sql.DB
-	dbReadonly *sql.DB
-	filelock   *golock.Lock
-	isLocked   bool
+	name string
+	db   *sql.DB
 	sync.RWMutex
 }
 
@@ -44,60 +41,39 @@ func New(name string) (fs *FileSystem, err error) {
 	fs.name = name
 
 	// if read-only, make sure the database exists
-	if _, errExists := os.Stat(fs.name); errExists != nil {
-		fs.db, err = sql.Open("sqlite3", fs.name)
-		if err != nil {
-			return
-		}
-		err = fs.initializeDB()
-		if err != nil {
-			err = errors.Wrap(err, "could not initialize")
-			return
-		}
-		fs.db.Close()
-	}
-
-	fs.filelock = golock.New(
-		golock.OptionSetName(fs.name+".lock"),
-		golock.OptionSetInterval(1*time.Millisecond),
-		golock.OptionSetTimeout(30*time.Second),
-	)
-	return
-}
-
-func (fs *FileSystem) finishTransaction() (err error) {
-	if fs.db != nil {
-		fs.db.Close()
-	}
-	fs.filelock.Unlock()
-	return
-}
-
-func (fs *FileSystem) startTransaction(readonly bool) (err error) {
-	if !readonly {
-		// obtain a lock on the database if we are going to be writing
-		err = fs.filelock.Lock()
-		if err != nil {
-			err = errors.Wrap(err, "could not get lock")
-			return
-		}
-	}
-
-	// open sqlite3 database
-	if readonly {
-		fs.db, err = sql.Open("sqlite3", fs.name)
-	} else {
-		fs.db, err = sql.Open("sqlite3", fs.name)
-	}
+	fs.db, err = sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		err = errors.Wrap(err, "could not open sqlite3 db")
 		return
 	}
-
+	err = fs.initializeDB()
+	if err != nil {
+		err = errors.Wrap(err, "could not initialize")
+		return
+	}
 	return
 }
 
 func (fs *FileSystem) initializeDB() (err error) {
+	if _, errHaveSQL := os.Stat(fs.name + ".sql.gz"); errHaveSQL == nil {
+		fi, err := os.Open(fs.name + ".sql.gz")
+		if err != nil {
+			return err
+		}
+		defer fi.Close()
+
+		fz, err := gzip.NewReader(fi)
+		if err != nil {
+			return err
+		}
+		defer fz.Close()
+
+		s, err := ioutil.ReadAll(fz)
+		if err != nil {
+			return err
+		}
+		_, err = fs.db.Exec(string(s))
+		return err
+	}
 	sqlStmt := `CREATE TABLE 
 		fs (
 			id TEXT NOT NULL PRIMARY KEY, 
@@ -125,12 +101,16 @@ func (fs *FileSystem) initializeDB() (err error) {
 func (fs *FileSystem) DumpSQL() (err error) {
 	fs.Lock()
 	defer fs.Unlock()
-	var dumpFile *os.File
-	dumpFile, err = os.Create(fs.name + ".sql")
+	fi, err := os.Create(fs.name + ".sql.gz")
 	if err != nil {
 		return
 	}
-	err = sqlite3dump.Dump(fs.name, dumpFile)
+	gf := gzip.NewWriter(fi)
+	fw := bufio.NewWriter(gf)
+	err = sqlite3dump.DumpDB(fs.db, fw)
+	fw.Flush()
+	gf.Close()
+	fi.Close()
 	return
 }
 
@@ -150,12 +130,6 @@ func (fs *FileSystem) NewFile(slug, data string) (f File) {
 func (fs *FileSystem) Save(f File) (err error) {
 	fs.Lock()
 	defer fs.Unlock()
-
-	defer fs.finishTransaction()
-	err = fs.startTransaction(false)
-	if err != nil {
-		return
-	}
 
 	tx, err := fs.db.Begin()
 	if err != nil {
@@ -266,10 +240,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 
 // Close will make sure that the lock file is closed
 func (fs *FileSystem) Close() (err error) {
-	fs.Lock()
-	defer fs.Unlock()
-
-	return fs.finishTransaction()
+	return fs.db.Close()
 }
 
 // Len returns how many things
@@ -277,11 +248,6 @@ func (fs *FileSystem) Len() (l int, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	defer fs.finishTransaction()
-	err = fs.startTransaction(true)
-	if err != nil {
-		return
-	}
 	// prepare statement
 	query := "SELECT COUNT(id) FROM FS"
 	stmt, err := fs.db.Prepare(query)
@@ -318,12 +284,6 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	defer fs.finishTransaction()
-	err = fs.startTransaction(true)
-	if err != nil {
-		return
-	}
-
 	files, err = fs.getAllFromPreparedQuery(`
 		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id = ? ORDER BY modified DESC`, id)
 	if err != nil {
@@ -348,19 +308,47 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	return
 }
 
+// LastModified get the last modified time
+func (fs *FileSystem) LastModified() (lastModified time.Time, err error) {
+	// prepare statement
+	query := "SELECT modified FROM fs ORDER BY modified DESC LIMIT 1"
+	stmt, err := fs.db.Prepare(query)
+	if err != nil {
+		err = errors.Wrap(err, "preparing query: "+query)
+		return
+	}
+
+	defer stmt.Close()
+	rows, err := stmt.Query()
+	if err != nil {
+		err = errors.Wrap(err, query)
+		return
+	}
+
+	// loop through rows
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&lastModified)
+		if err != nil {
+			err = errors.Wrap(err, "getRows")
+			return
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errors.Wrap(err, "getRows")
+	}
+	return
+}
+
 // Find returns the info from a file
 func (fs *FileSystem) Find(text string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	defer fs.finishTransaction()
-	err = fs.startTransaction(true)
-	if err != nil {
-		return
-	}
-
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id = (SELECT id FROM fts WHERE data match ?) ORDER BY modified DESC`, text)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id IN (SELECT id FROM fts WHERE data MATCH ?) ORDER BY modified DESC`, text)
+	log.Printf(`SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id IN (SELECT id FROM fts WHERE data MATCH '%s') ORDER BY modified DESC`, text)
 	return
 }
 
@@ -382,11 +370,6 @@ func (fs *FileSystem) Exists(id string) (exists bool, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	defer fs.finishTransaction()
-	err = fs.startTransaction(true)
-	if err != nil {
-		return
-	}
 	files, err := fs.getAllFromPreparedQuerySingleString(`
 		SELECT id FROM fs WHERE id = ?`, id)
 	if err != nil {
