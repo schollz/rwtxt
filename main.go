@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
+	log "github.com/cihub/seelog"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/schollz/cowyo2/src/db"
@@ -16,11 +16,20 @@ import (
 )
 
 const (
-	introText = ""
+	introText = "This note is empty. Click to edit it."
 )
 
 func main() {
-	serve()
+	defer log.Flush()
+
+	err := setLogLevel("debug")
+	if err != nil {
+		panic(err)
+	}
+	err = serve()
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 type Payload struct {
@@ -42,19 +51,40 @@ var wsupgrader = websocket.Upgrader{
 func serve() (err error) {
 	fs, err := db.New("cowyo2.db")
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 		return
 	}
+	go func() {
+		lastDumped := time.Now()
+		for {
+			time.Sleep(10 * time.Second)
+			lastModified, errGet := fs.LastModified()
+			if errGet != nil {
+				panic(errGet)
+			}
+			if time.Since(lastDumped).Seconds()-time.Since(lastModified).Seconds() > 3 {
+				log.Debug("dumping")
+				errDump := fs.DumpSQL()
+				if errDump != nil {
+					panic(errDump)
+				}
+				lastDumped = time.Now()
+			}
+		}
+	}()
 
 	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+	r := gin.New()
+	// Standardize logs
+	r.Use(middleWareHandler(), gin.Recovery())
+	// r.HTMLRender = loadTemplates("index.html")
 	r.LoadHTMLGlob("templates/*")
 	r.GET("/", func(cg *gin.Context) {
 		query := cg.DefaultQuery("q", "")
 		if query != "" {
 			files, err := fs.Find(query)
 			if err != nil {
-				log.Fatal(err)
+				log.Error(err)
 			}
 			initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
 			for _, fi := range files {
@@ -92,7 +122,7 @@ The simplest way to take notes.
 			// handle websockets on this page
 			c, err := wsupgrader.Upgrade(cg.Writer, cg.Request, nil)
 			if err != nil {
-				log.Print("upgrade:", err)
+				log.Debug("upgrade:", err)
 				return
 			}
 			defer c.Close()
@@ -100,21 +130,25 @@ The simplest way to take notes.
 			for {
 				err := c.ReadJSON(&p)
 				if err != nil {
-					log.Println("read:", err)
+					log.Debug("read:", err)
 					break
 				}
-				log.Printf("recv: %v", p)
+				log.Debugf("recv: %v", p)
 
 				// save it
 				if p.ID != "" {
+					data := strings.TrimSpace(p.Data)
+					if data == introText {
+						data = ""
+					}
 					err = fs.Save(db.File{
 						ID:      p.ID,
 						Slug:    p.Slug,
-						Data:    strings.TrimSpace(p.Data),
+						Data:    data,
 						Created: time.Now(),
 					})
 					if err != nil {
-						log.Println(err)
+						log.Debug(err)
 					}
 					fs, _ := fs.Get(p.Slug)
 					err = c.WriteJSON(Payload{
@@ -124,7 +158,7 @@ The simplest way to take notes.
 						Success: len(fs) < 2,
 					})
 					if err != nil {
-						log.Println("write:", err)
+						log.Debug("write:", err)
 						break
 					}
 				}
@@ -132,7 +166,7 @@ The simplest way to take notes.
 		} else {
 			// handle new page
 			// get edit url parameter
-			log.Printf("loading %s", page)
+			log.Debugf("loading %s", page)
 			havePage, _ := fs.Exists(page)
 			initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
 			var f db.File
@@ -140,7 +174,7 @@ The simplest way to take notes.
 				var files []db.File
 				files, err = fs.Get(page)
 				if err != nil {
-					log.Fatal(err)
+					log.Error(err)
 				}
 				if len(files) > 1 {
 					initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
@@ -173,7 +207,7 @@ The simplest way to take notes.
 				f.Data = introText
 				err = fs.Save(f)
 				if err != nil {
-					log.Fatal(err)
+					log.Error(err)
 				}
 				cg.Redirect(302, "/"+page+"?edit=1")
 			}
@@ -188,7 +222,65 @@ The simplest way to take notes.
 			})
 		}
 	})
-	log.Printf("running on port 8152")
+	log.Debugf("running on port 8152")
 	r.Run(":8152") // listen and serve on 0.0.0.0:8080
 	return
+}
+
+// SetLogLevel determines the log level
+func setLogLevel(level string) (err error) {
+
+	// https://en.wikipedia.org/wiki/ANSI_escape_code#3/4_bit
+	// https://github.com/cihub/seelog/wiki/Log-levels
+	appConfig := `
+	<seelog minlevel="` + level + `">
+	<outputs formatid="stdout">
+	<filter levels="debug,trace">
+		<console formatid="debug"/>
+	</filter>
+	<filter levels="info">
+		<console formatid="info"/>
+	</filter>
+	<filter levels="critical,error">
+		<console formatid="error"/>
+	</filter>
+	<filter levels="warn">
+		<console formatid="warn"/>
+	</filter>
+	</outputs>
+	<formats>
+		<format id="stdout"   format="%Date %Time [%LEVEL] %File %FuncShort:%Line %Msg %n" />
+		<format id="debug"   format="%Date %Time %EscM(37)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+		<format id="info"    format="%Date %Time %EscM(36)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+		<format id="warn"    format="%Date %Time %EscM(33)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+		<format id="error"   format="%Date %Time %EscM(31)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+	</formats>
+	</seelog>
+	`
+	logger, err := log.LoggerFromConfigAsBytes([]byte(appConfig))
+	if err != nil {
+		return
+	}
+	log.ReplaceLogger(logger)
+	return
+}
+
+func addCORS(c *gin.Context) {
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("Access-Control-Max-Age", "86400")
+	c.Writer.Header().Set("Access-Control-Allow-Methods", "GET")
+	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Max")
+	c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+}
+
+func middleWareHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		t := time.Now()
+		// Add base headers
+		addCORS(c)
+		// Run next function
+		c.Next()
+		// Log request
+		log.Infof("%v %v %v %s", c.Request.RemoteAddr, c.Request.Method, c.Request.URL, time.Since(t))
+	}
 }
