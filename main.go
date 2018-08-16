@@ -10,7 +10,6 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/schollz/cowyo2/src/db"
 	"github.com/schollz/cowyo2/src/utils"
@@ -19,6 +18,30 @@ import (
 const (
 	introText = "This note is empty. Click to edit it."
 )
+
+var indexTemplate *template.Template
+var fs *db.FileSystem
+
+type TemplateRender struct {
+	Title     string
+	Page      string
+	Rendered  template.HTML
+	File      db.File
+	IntroText template.JS
+}
+
+func init() {
+	var err error
+	indexTemplate = template.New("main")
+	b, err := ioutil.ReadFile("templates/index.html")
+	if err != nil {
+		panic(err)
+	}
+	indexTemplate, err = indexTemplate.Parse(string(b))
+	if err != nil {
+		panic(err)
+	}
+}
 
 func main() {
 	defer log.Flush()
@@ -50,7 +73,7 @@ var wsupgrader = websocket.Upgrader{
 }
 
 func serve() (err error) {
-	fs, err := db.New("cowyo2.db")
+	fs, err = db.New("cowyo2.db")
 	if err != nil {
 		log.Error(err)
 		return
@@ -73,24 +96,136 @@ func serve() (err error) {
 			}
 		}
 	}()
+	log.Debugf("running on port 8152")
+	http.HandleFunc("/", handler)
+	return http.ListenAndServe(":8152", nil)
+}
 
-	gin.SetMode(gin.ReleaseMode)
-	r := gin.New()
-	// Standardize logs
-	r.Use(middleWareHandler(), gin.Recovery())
-	// r.HTMLRender = loadTemplates("index.html")
-	r.LoadHTMLGlob("templates/*")
-	r.GET("/*page", func(cg *gin.Context) {
-		page := cg.Param("page")
-		log.Debug(page)
-		if page == "/" {
-			query := cg.DefaultQuery("q", "")
-			if query != "" {
-				files, err := fs.Find(query)
-				if err != nil {
-					log.Error(err)
+func handler(w http.ResponseWriter, r *http.Request) {
+	t := time.Now()
+	err := handle(w, r)
+	if err != nil {
+		log.Error(err)
+	}
+	log.Infof("%v %v %v %s", r.RemoteAddr, r.Method, r.URL, time.Since(t))
+}
+
+func handle(w http.ResponseWriter, r *http.Request) (err error) {
+	page := r.URL.Path
+	log.Debug(page)
+	if page == "/" {
+		query := r.URL.Query().Get("q")
+		if query != "" {
+			files, errGet := fs.Find(query)
+			if errGet != nil {
+				return errGet
+			}
+			initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
+			for _, fi := range files {
+				snippet := fi.Data
+				if len(snippet) > 50 {
+					snippet = snippet[:50]
 				}
-				initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
+				reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
+				snippet = strings.Replace(snippet, "\n", " ", -1)
+				snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
+				initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+			}
+			indexTemplate.Execute(w, TemplateRender{
+				Title:    query + " pages",
+				Page:     query,
+				Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
+			})
+			return
+		}
+		indexTemplate.Execute(w, TemplateRender{
+			Title: query + " pages",
+			Page:  query,
+			Rendered: utils.RenderMarkdownToHTML(fmt.Sprintf(`
+<a href='/%s' class='fr'>New</a>
+
+# cowyo2 
+
+The simplest way to take notes.
+				`, strings.ToLower(utils.UUID()))),
+		})
+	} else if page == "/ws" {
+		// handle websockets on this page
+		c, errUpgrade := wsupgrader.Upgrade(w, r, nil)
+		if errUpgrade != nil {
+			return errUpgrade
+		}
+		defer c.Close()
+		var p Payload
+		for {
+			err := c.ReadJSON(&p)
+			if err != nil {
+				log.Debug("read:", err)
+				break
+			}
+			log.Debugf("recv: %v", p)
+
+			// save it
+			if p.ID != "" {
+				data := strings.TrimSpace(p.Data)
+				if data == introText {
+					data = ""
+				}
+				err = fs.Save(db.File{
+					ID:      p.ID,
+					Slug:    p.Slug,
+					Data:    data,
+					Created: time.Now(),
+				})
+				if err != nil {
+					log.Debug(err)
+				}
+				fs, _ := fs.Get(p.Slug)
+				err = c.WriteJSON(Payload{
+					ID:      p.ID,
+					Slug:    p.Slug,
+					Message: "unique_slug",
+					Success: len(fs) < 2,
+				})
+				if err != nil {
+					log.Debug("write:", err)
+					break
+				}
+			}
+		}
+	} else if strings.HasPrefix(page, "/static") {
+		w.Header().Set("Vary", "Accept-Encoding")
+		w.Header().Set("Cache-Control", "public, max-age=7776000")
+		// cg.Writer.Header().Set("Content-Encoding", "gzip")
+		log.Debug(page)
+		if strings.HasSuffix(page, "cowyo2.js") {
+			b, _ := ioutil.ReadFile("static/js/cowyo2.js")
+			w.Header().Set("Content-Type", "text/javascript")
+			w.Write(b)
+			return
+		} else if strings.HasSuffix(page, "cowyo2.css") {
+			b, _ := ioutil.ReadFile("static/css/cowyo2.css")
+			w.Header().Set("Content-Type", "text/css")
+			w.Write(b)
+			return
+		}
+		return
+	} else {
+		// handle new page
+		// get edit url parameter
+		page = page[1:]
+		log.Debugf("loading %s", page)
+		havePage, _ := fs.Exists(page)
+		initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
+		var f db.File
+		if havePage {
+			var files []db.File
+			files, err = fs.Get(page)
+			if err != nil {
+				log.Error(err)
+			}
+			if len(files) > 1 {
+				initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
 				for _, fi := range files {
 					snippet := fi.Data
 					if len(snippet) > 50 {
@@ -101,143 +236,38 @@ func serve() (err error) {
 					snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
 					initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
 				}
-				cg.HTML(http.StatusOK, "index.html", gin.H{
-					"Title":    query + " pages",
-					"Page":     query,
-					"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
+				indexTemplate.Execute(w, TemplateRender{
+					Title:    page + " pages",
+					Page:     page,
+					Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
 				})
 				return
-			}
-			cg.HTML(http.StatusOK, "index.html", gin.H{
-				"Rendered": utils.RenderMarkdownToHTML(fmt.Sprintf(`
-<a href='/%s' class='fr'>New</a>
-
-# cowyo2 
-
-The simplest way to take notes.
-				`, strings.ToLower(utils.UUID()))),
-			})
-		} else if page == "/ws" {
-			// handle websockets on this page
-			c, err := wsupgrader.Upgrade(cg.Writer, cg.Request, nil)
-			if err != nil {
-				log.Debug("upgrade:", err)
-				return
-			}
-			defer c.Close()
-			var p Payload
-			for {
-				err := c.ReadJSON(&p)
-				if err != nil {
-					log.Debug("read:", err)
-					break
-				}
-				log.Debugf("recv: %v", p)
-
-				// save it
-				if p.ID != "" {
-					data := strings.TrimSpace(p.Data)
-					if data == introText {
-						data = ""
-					}
-					err = fs.Save(db.File{
-						ID:      p.ID,
-						Slug:    p.Slug,
-						Data:    data,
-						Created: time.Now(),
-					})
-					if err != nil {
-						log.Debug(err)
-					}
-					fs, _ := fs.Get(p.Slug)
-					err = c.WriteJSON(Payload{
-						ID:      p.ID,
-						Slug:    p.Slug,
-						Message: "unique_slug",
-						Success: len(fs) < 2,
-					})
-					if err != nil {
-						log.Debug("write:", err)
-						break
-					}
-				}
-			}
-		} else if strings.HasPrefix(page, "/static") {
-			cg.Writer.Header().Set("Vary", "Accept-Encoding")
-			cg.Writer.Header().Set("Cache-Control", "public, max-age=7776000")
-			log.Debug(page)
-			if strings.HasSuffix(page, "cowyo2.js") {
-				b, _ := ioutil.ReadFile("static/js/cowyo2.js")
-				cg.Data(200, "text/javascript", b)
-				return
-			} else if strings.HasSuffix(page, "cowyo2.css") {
-				b, _ := ioutil.ReadFile("static/css/cowyo2.css")
-				cg.Data(200, "text/css", b)
-				return
-			}
-			return
-		} else {
-			// handle new page
-			// get edit url parameter
-			page = page[1:]
-			log.Debugf("loading %s", page)
-			havePage, _ := fs.Exists(page)
-			initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
-			var f db.File
-			if havePage {
-				var files []db.File
-				files, err = fs.Get(page)
-				if err != nil {
-					log.Error(err)
-				}
-				if len(files) > 1 {
-					initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
-					for _, fi := range files {
-						snippet := fi.Data
-						if len(snippet) > 50 {
-							snippet = snippet[:50]
-						}
-						reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
-						snippet = strings.Replace(snippet, "\n", " ", -1)
-						snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-						initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
-					}
-					cg.HTML(http.StatusOK, "index.html", gin.H{
-						"Title":    page + " pages",
-						"Page":     page,
-						"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
-					})
-					return
-				} else {
-					f = files[0]
-				}
 			} else {
-				f = db.File{
-					ID:       utils.UUID(),
-					Created:  time.Now(),
-					Modified: time.Now(),
-				}
-				f.Slug = page
-				f.Data = introText
-				err = fs.Save(f)
-				if err != nil {
-					log.Error(err)
-				}
-				cg.Redirect(302, "/"+page+"?edit=1")
+				f = files[0]
 			}
-			initialMarkdown += "\n\n" + f.Data
-
-			cg.HTML(http.StatusOK, "index.html", gin.H{
-				"Page":      page,
-				"Rendered":  utils.RenderMarkdownToHTML(initialMarkdown),
-				"File":      f,
-				"IntroText": template.JS(introText),
-				"Title":     f.Slug,
-			})
+		} else {
+			f = db.File{
+				ID:       utils.UUID(),
+				Created:  time.Now(),
+				Modified: time.Now(),
+			}
+			f.Slug = page
+			f.Data = introText
+			err = fs.Save(f)
+			if err != nil {
+				log.Error(err)
+			}
+			http.Redirect(w, r, "/"+page+"?edit=1", 302)
 		}
-	})
-	log.Debugf("running on port 8152")
-	r.Run(":8152") // listen and serve on 0.0.0.0:8080
+		initialMarkdown += "\n\n" + f.Data
+		indexTemplate.Execute(w, TemplateRender{
+			Page:      page,
+			Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
+			File:      f,
+			IntroText: template.JS(introText),
+			Title:     f.Slug,
+		})
+	}
 	return
 }
 
@@ -277,24 +307,4 @@ func setLogLevel(level string) (err error) {
 	}
 	log.ReplaceLogger(logger)
 	return
-}
-
-func addCORS(c *gin.Context) {
-	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-	c.Writer.Header().Set("Access-Control-Max-Age", "86400")
-	c.Writer.Header().Set("Access-Control-Allow-Methods", "GET")
-	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Max")
-	c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-}
-
-func middleWareHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		t := time.Now()
-		// Add base headers
-		addCORS(c)
-		// Run next function
-		c.Next()
-		// Log request
-		log.Infof("%v %v %v %s", c.Request.RemoteAddr, c.Request.Method, c.Request.URL, time.Since(t))
-	}
 }
