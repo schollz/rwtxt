@@ -163,6 +163,8 @@ The simplest way to take notes.
 				}
 			}
 		} else if strings.HasPrefix(page, "/static") {
+			cg.Writer.Header().Set("Vary", "Accept-Encoding")
+			cg.Writer.Header().Set("Cache-Control", "public, max-age=7776000")
 			log.Debug(page)
 			if strings.HasSuffix(page, "cowyo2.js") {
 				b, _ := ioutil.ReadFile("static/js/cowyo2.js")
