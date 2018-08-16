@@ -8,12 +8,13 @@
 </head>
 
 <body>
-    <div class="main" id="rendered">
+    <div class="main">
+ <div class="fonty" id="rendered">
         {{.Rendered}}
     </div>
-    <pre class="main" contenteditable="false" id="editable" style="-webkit-user-select:text;display:none;" autofocus>{{.File.Data}}
-</pre>
-    <script>
+    <textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>
+    </div>
+   <script>
         window.cowyo2 = {
             file_id: "{{.File.ID}}",
             intro_text: "{{.IntroText}}"

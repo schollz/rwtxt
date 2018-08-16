@@ -101,7 +101,7 @@
 
  JD.contentEdited = function () {
      console.log('edited');
-     var markdown = document.getElementById("editable").innerText.replaceAll("<br>", "\n");
+     var markdown = document.getElementById("editable").value.replaceAll("<br>", "\n");
      var slug = slugify(markdown);
      socket.send(JSON.stringify({
          "id": window.cowyo2.file_id,
@@ -139,10 +139,10 @@
      d = document.getElementById("rendered")
      d.innerHTML = "";
      editor = document.getElementById("editable")
-     editor.contentEditable = "true";
+    //  editor.contentEditable = "true";
      editor.style.display = 'inline-block'; // needed to add brs at end
      editor.focus();
-     setEndOfContenteditable(editor);
+     autoExpand(document.getElementById("editable"));
      console.log('loading editor');
  };
 
@@ -153,29 +153,47 @@
      editlink.addEventListener("click", JD.loadEditor);
  }
 
- // allow only pasting plain text
- document.getElementById("editable").addEventListener("paste", function (e) {
-     e.preventDefault();
-     var text = e.clipboardData.getData("text/plain");
-     document.execCommand("insertHTML", false, text);
- });
+//  // allow only pasting plain text
+//  document.getElementById("editable").addEventListener("paste", function (e) {
+//      e.preventDefault();
+//      var text = e.clipboardData.getData("text/plain");
+//      document.execCommand("insertHTML", false, text);
+//  });
 
  document.getElementById("editable").addEventListener('focusin', function (e) {
      console.log('focusin!')
      editor = document.getElementById("editable");
-     console.log('[' + editor.innerText.trim() + ']');
-     if (editor.innerText.trim() == window.cowyo2.intro_text) {
-         editor.innerText = " ";
+     console.log('[' + editor.value.trim() + ']');
+     if (editor.value.trim() == window.cowyo2.intro_text) {
+         editor.value = " ";
      }
  })
- document.getElementById("editable").addEventListener('keydown', function (e) {
-     console.log('enter!')
-     if (e.keyCode == 13) {
-         e.preventDefault();
-         document.execCommand('insertHTML', false, '<br>');
-         return false;
-     }
- })
+
+
+ var autoExpand = function (field) {
+
+	// Reset field height
+	field.style.height = 'inherit';
+
+	// Get the computed styles for the element
+	var computed = window.getComputedStyle(field);
+
+	// Calculate the height
+	var height = parseInt(computed.getPropertyValue('border-top-width'), 10)
+	             + parseInt(computed.getPropertyValue('padding-top'), 10)
+	             + field.scrollHeight
+	             + parseInt(computed.getPropertyValue('padding-bottom'), 10)
+	             + parseInt(computed.getPropertyValue('border-bottom-width'), 10);
+
+	field.style.height = height + 'px';
+
+};
+
+document.getElementById("editable").addEventListener('input', function (event) {
+	if (event.target.tagName.toLowerCase() !== 'textarea') return;
+	autoExpand(event.target);
+}, false);
+
 
  // if editing, go to edit page
  if (getParameterByName("edit") != null) {
@@ -183,3 +201,6 @@
      document.getElementById("editable").focus();
      history.pushState({}, window.location.pathname, window.location.pathname);
  }
+ 
+ 
+ 

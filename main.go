@@ -28,6 +28,7 @@ type TemplateRender struct {
 	Rendered  template.HTML
 	File      db.File
 	IntroText template.JS
+	Rows      int
 }
 
 func init() {
@@ -266,6 +267,7 @@ The simplest way to take notes.
 			File:      f,
 			IntroText: template.JS(introText),
 			Title:     f.Slug,
+			Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
 		})
 	}
 	return

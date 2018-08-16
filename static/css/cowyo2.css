@@ -4,16 +4,34 @@
 
 .main {
     font-family: "Times New Roman", Times, serif;
-    margin: 1em auto;
     font-size: 1.3rem;
-    max-width: 32em;
     line-height: 1.3;
+    margin: 1em auto;
+    max-width: 32em;
 }
 
 a {
     border-bottom: 0.5px solid #0000FF;
     color: #0000FF;
     text-decoration: none;
+}
+
+textarea {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 1.3rem;
+    line-height: 1.3;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    border: 0;
+    border: none;
+    outline: none;
+    -webkit-box-shadow: none;
+    -moz-box-shadow: none;
+    box-shadow: none;
+    resize: none;
 }
 
 pre {
