@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -79,46 +80,44 @@ func serve() (err error) {
 	r.Use(middleWareHandler(), gin.Recovery())
 	// r.HTMLRender = loadTemplates("index.html")
 	r.LoadHTMLGlob("templates/*")
-	r.GET("/", func(cg *gin.Context) {
-		query := cg.DefaultQuery("q", "")
-		if query != "" {
-			files, err := fs.Find(query)
-			if err != nil {
-				log.Error(err)
-			}
-			initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
-			for _, fi := range files {
-				snippet := fi.Data
-				if len(snippet) > 50 {
-					snippet = snippet[:50]
+	r.GET("/*page", func(cg *gin.Context) {
+		page := cg.Param("page")
+		log.Debug(page)
+		if page == "/" {
+			query := cg.DefaultQuery("q", "")
+			if query != "" {
+				files, err := fs.Find(query)
+				if err != nil {
+					log.Error(err)
 				}
-				reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
-				snippet = strings.Replace(snippet, "\n", " ", -1)
-				snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-				initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+				initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
+				for _, fi := range files {
+					snippet := fi.Data
+					if len(snippet) > 50 {
+						snippet = snippet[:50]
+					}
+					reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
+					snippet = strings.Replace(snippet, "\n", " ", -1)
+					snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
+					initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+				}
+				cg.HTML(http.StatusOK, "index.html", gin.H{
+					"Title":    query + " pages",
+					"Page":     query,
+					"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
+				})
+				return
 			}
 			cg.HTML(http.StatusOK, "index.html", gin.H{
-				"Title":    query + " pages",
-				"Page":     query,
-				"Rendered": utils.RenderMarkdownToHTML(initialMarkdown),
-			})
-			return
-			return
-		}
-		cg.HTML(http.StatusOK, "index.html", gin.H{
-			"Rendered": utils.RenderMarkdownToHTML(fmt.Sprintf(`
-
+				"Rendered": utils.RenderMarkdownToHTML(fmt.Sprintf(`
 <a href='/%s' class='fr'>New</a>
 
 # cowyo2 
 
 The simplest way to take notes.
-			`, strings.ToLower(utils.UUID()))),
-		})
-	})
-	r.GET("/:page", func(cg *gin.Context) {
-		page := cg.Param("page")
-		if page == "ws" {
+				`, strings.ToLower(utils.UUID()))),
+			})
+		} else if page == "/ws" {
 			// handle websockets on this page
 			c, err := wsupgrader.Upgrade(cg.Writer, cg.Request, nil)
 			if err != nil {
@@ -163,9 +162,22 @@ The simplest way to take notes.
 					}
 				}
 			}
+		} else if strings.HasPrefix(page, "/static") {
+			log.Debug(page)
+			if strings.HasSuffix(page, "cowyo2.js") {
+				b, _ := ioutil.ReadFile("static/js/cowyo2.js")
+				cg.Data(200, "text/javascript", b)
+				return
+			} else if strings.HasSuffix(page, "cowyo2.css") {
+				b, _ := ioutil.ReadFile("static/css/cowyo2.css")
+				cg.Data(200, "text/css", b)
+				return
+			}
+			return
 		} else {
 			// handle new page
 			// get edit url parameter
+			page = page[1:]
 			log.Debugf("loading %s", page)
 			havePage, _ := fs.Exists(page)
 			initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
