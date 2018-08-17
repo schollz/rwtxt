@@ -3,6 +3,17 @@
 <div class="main" class="fonty">
 <a href='/{{.RandomUUID}}' class='fr'>New</a>
 <h1>Main</h1>
+
+<p>Welcome to the <strong>{{.Domain}}</strong> domain. {{if eq .Domain "public"}}Anyone can edit these pages.{{else}}{{ if .SignedIn}}You are signed in and can edit.{{else}}You are not signed in and cannot edit pages.{{end}}{{end}}</p>
+
+<form action="/login" method="post">
+    Domain: <input type="text" name="domain" value="">
+    <br>
+    Key: <input name="key" value="" type="password">
+    <br>
+    <input type="submit" value="Submit">
+  </form> 
+
 </div>
 
 {{template "footer" .}}

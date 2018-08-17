@@ -32,6 +32,8 @@ type TemplateRender struct {
 	IntroText  template.JS
 	Rows       int
 	RandomUUID string
+	Domain     string
+	SignedIn   bool
 }
 
 func init() {
@@ -137,8 +139,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	log.Infof("%v %v %v %s", r.RemoteAddr, r.Method, r.URL, time.Since(t))
 }
 
-func handleSearch(w http.ResponseWriter, r *http.Request) (err error) {
-	query := r.URL.Query().Get("q")
+func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
 	files, errGet := fs.Find(query)
 	if errGet != nil {
 		return errGet
@@ -161,10 +162,27 @@ func handleSearch(w http.ResponseWriter, r *http.Request) (err error) {
 	})
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request) (err error) {
+func handleMain(w http.ResponseWriter, r *http.Request, domain string) (err error) {
+	return mainTemplate.Execute(w, TemplateRender{
+		Title:      "cowyo2",
+		Domain:     domain,
+		RandomUUID: utils.UUID(),
+		SignedIn:   false || domain == "public",
+	})
+}
+
+func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
+	domain := r.FormValue("domain")
+	domainKey := r.FormValue("key")
+	if domain != "" && domainKey != "" {
+		// sign in
+	}
+	log.Debug(domain, domainKey)
 	return mainTemplate.Execute(w, TemplateRender{
 		Title:      "cowyo2",
 		RandomUUID: utils.UUID(),
+		Domain:     domain,
+		SignedIn:   false,
 	})
 }
 
@@ -235,10 +253,9 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	return
 }
 
-func handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
+func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string) (err error) {
 	// handle new page
 	// get edit url parameter
-	page := r.URL.Path[1:]
 	log.Debugf("loading %s", page)
 	havePage, _ := fs.Exists(page)
 	initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
@@ -297,17 +314,34 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func handle(w http.ResponseWriter, r *http.Request) (err error) {
+	fields := strings.Split(r.URL.Path, "/")
+	domain := "public"
+	page := ""
+	if len(fields) > 2 {
+		page = strings.ToLower(fields[2])
+	}
+	if len(fields) > 1 {
+		domain = strings.ToLower(fields[1])
+	}
 	if r.URL.Path == "/" {
-		log.Debug("handle main")
-		return handleMain(w, r)
-	} else if r.URL.Query().Get("q") != "" {
-		return handleSearch(w, r)
+		// special path /
+		http.Redirect(w, r, "/public", 302)
 	} else if r.URL.Path == "/ws" {
+		// special path /ws
 		return handleWebsocket(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
+		// special path /static
 		return handleStatic(w, r)
-	} else {
-		return handleViewEdit(w, r)
+	} else if r.URL.Path == "/login" {
+		// special path /login
+		return handleLogin(w, r)
+	} else if domain != "" && page == "" {
+		if r.URL.Query().Get("q") != "" {
+			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
+		}
+		return handleMain(w, r, domain)
+	} else if domain != "" && page != "" {
+		return handleViewEdit(w, r, domain, page)
 	}
 	return
 }
