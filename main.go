@@ -33,15 +33,21 @@ type TemplateRender struct {
 
 func init() {
 	var err error
-	indexTemplate = template.New("main")
 	b, err := ioutil.ReadFile("templates/index.html")
 	if err != nil {
 		panic(err)
 	}
-	indexTemplate, err = indexTemplate.Parse(string(b))
+	indexTemplate = template.Must(template.New("main").Parse(string(b)))
+	b, err = ioutil.ReadFile("templates/header.html")
 	if err != nil {
 		panic(err)
 	}
+	indexTemplate = template.Must(indexTemplate.Parse(string(b)))
+	b, err = ioutil.ReadFile("templates/footer.html")
+	if err != nil {
+		panic(err)
+	}
+	indexTemplate = template.Must(indexTemplate.Parse(string(b)))
 }
 
 func main() {

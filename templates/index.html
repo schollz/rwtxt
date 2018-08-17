@@ -1,27 +1,9 @@
-<!DOCTYPE html>
-<html>
+{{template "header" .}}
 
-<head>
-    <title>{{.Title}}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="/static/css/cowyo2.css">
-</head>
+<span style="display:none;" id="saved">✔</span>
+<div class="fonty" id="rendered">
+    {{.Rendered}}
+</div>
+<textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>
 
-<body>
-    <div class="main">
-        <span style="display:none;" id="saved">✔</span>
- <div class="fonty" id="rendered">
-        {{.Rendered}}
-    </div>
-    <textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>
-    </div>
-   <script>
-        window.cowyo2 = {
-            file_id: "{{.File.ID}}",
-            intro_text: "{{.IntroText}}"
-        }
-    </script>
-    <script src="/static/js/cowyo2.js"></script>
-</body>
-
-</html>
+{{template "footer" .}}
