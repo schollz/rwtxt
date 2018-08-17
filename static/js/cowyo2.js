@@ -108,7 +108,8 @@
          "slug": slugify(markdown),
          "data": markdown,
      }));
-
+     document.getElementById("saved").style.display = 'inline-block';
+     setTimeout(function(){ document.getElementById("saved").style.display = 'none'; }, 1000);
  };
 
  JD.serverResponse = function (jsonString) {

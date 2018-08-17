@@ -56,6 +56,13 @@ code {
     float: right;
 }
 
+#saved {
+    float: right;
+    position: fixed;
+    top: 1em;
+    right: 1em;
+}
+
 #editlink:hover {
     cursor: pointer;
 }
