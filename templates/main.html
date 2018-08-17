@@ -6,13 +6,23 @@
 
 <p>Welcome to the <strong>{{.Domain}}</strong> domain. {{if eq .Domain "public"}}Anyone can edit these pages.{{else}}{{ if .SignedIn}}You are signed in and can edit.{{else}}You are not signed in and cannot edit pages.{{end}}{{end}}</p>
 
+
+<p>
+<form action="/{{.Domain}}" method="get">
+    <input type="text" name="q" value="">
+    <input type="submit" value="Search">
+</form> 
+</p>
+
+<p>
 <form action="/login" method="post">
     Domain: <input type="text" name="domain" value="">
     <br>
     Key: <input name="key" value="" type="password">
     <br>
     <input type="submit" value="Submit">
-  </form> 
+</form> 
+</p>
 
 </div>
 
