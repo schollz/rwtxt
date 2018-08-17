@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ type File struct {
 	Created  time.Time
 	Modified time.Time
 	Data     string
+	DomainID int
 }
 
 // New will initialize a filesystem
@@ -77,7 +79,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	sqlStmt := `CREATE TABLE 
 		fs (
 			id TEXT NOT NULL PRIMARY KEY,
-			owner INTEGER,
+			domainid INTEGER,
 			slug TEXT,
 			created TIMESTAMP,
 			modified TIMESTAMP,
@@ -97,14 +99,20 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 
 	sqlStmt = `CREATE TABLE 
-	owners (
+	domains (
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
 		pass TEXT
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
-		err = errors.Wrap(err, "creating owners table")
+		err = errors.Wrap(err, "creating domains table")
+	}
+
+	sqlStmt = `INSERT INTO domains(name,pass) VALUES('public','');`
+	_, err = fs.db.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating domains table")
 	}
 
 	return
@@ -288,6 +296,46 @@ func (fs *FileSystem) Len() (l int, err error) {
 	err = rows.Err()
 	if err != nil {
 		err = errors.Wrap(err, "getRows")
+	}
+	return
+}
+
+// GetDomainID returns the domain id, throws an error if the domain does not exist
+func (fs *FileSystem) GetDomainID(domain string) (domainid int, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	domain = strings.ToLower(domain)
+	// prepare statement
+	query := "SELECT id FROM domains WHERE name = ?"
+	stmt, err := fs.db.Prepare(query)
+	if err != nil {
+		err = errors.Wrap(err, "preparing query: "+query)
+		return
+	}
+
+	defer stmt.Close()
+	rows, err := stmt.Query(domain)
+	if err != nil {
+		err = errors.Wrap(err, query)
+		return
+	}
+
+	// loop through rows
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&domainid)
+		if err != nil {
+			err = errors.Wrap(err, "getRows")
+			return
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errors.Wrap(err, "getRows")
+	}
+	if domainid == 0 {
+		err = errors.New("domain does not exist")
 	}
 	return
 }

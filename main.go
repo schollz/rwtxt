@@ -187,6 +187,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
+
+	cookie, err := r.Cookie("username")
+	log.Debugf("getting cookie: [%+v], %+v", cookie, err)
 	// handle websockets on this page
 	c, errUpgrade := wsupgrader.Upgrade(w, r, nil)
 	if errUpgrade != nil {
@@ -254,6 +257,11 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string) (err error) {
+
+	expiration := time.Now().Add(365 * 24 * time.Hour)
+	cookie := http.Cookie{Name: "username", Value: "astaxie", Expires: expiration}
+	http.SetCookie(w, &cookie)
+	log.Debug("setting cookie")
 	// handle new page
 	// get edit url parameter
 	log.Debugf("loading %s", page)
@@ -267,7 +275,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			log.Error(err)
 		}
 		if len(files) > 1 {
-			initialMarkdown = fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), page)
+			initialMarkdown = fmt.Sprintf("<a href='/%s/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", domain, utils.UUID(), len(files), page)
 			for _, fi := range files {
 				snippet := fi.Data
 				if len(snippet) > 50 {
@@ -299,7 +307,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		if err != nil {
 			log.Error(err)
 		}
-		http.Redirect(w, r, "/"+page+"?edit=1", 302)
+		http.Redirect(w, r, "/"+domain+"/"+page+"?edit=1", 302)
 	}
 	initialMarkdown += "\n\n" + f.Data
 	viewEditTemplate.Execute(w, TemplateRender{
@@ -341,6 +349,7 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 		return handleMain(w, r, domain)
 	} else if domain != "" && page != "" {
+		log.Debug("handle view edit")
 		return handleViewEdit(w, r, domain, page)
 	}
 	return
