@@ -3,9 +3,6 @@
 }
 
 .main {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 1.3rem;
-    line-height: 1.3;
     margin: 1em auto;
     max-width: 32em;
 }
@@ -16,10 +13,13 @@ a {
     text-decoration: none;
 }
 
-textarea {
+.main, textarea {
     font-family: "Times New Roman", Times, serif;
     font-size: 1.3rem;
     line-height: 1.3;
+}
+
+textarea {
     width: 100%;
     height: 100%;
     box-sizing: border-box;
@@ -61,16 +61,20 @@ code {
 }
 
 @media screen and (min-width: 0em) and (max-width: 30em) {
-    .main {
+    textarea,.main {
         font-size: 1.1rem;
+    }
+    .main {
         margin-left: 0.1em;
         margin-right: 0.1em;
     }
 }
 
 @media screen and (min-width: 30em) and (max-width: 60em) {
-    .main {
+    textarea,.main {
         font-size: 1.2rem;
+    }
+    .main {
         margin-left: 1em;
         margin-right: 1em;
     }

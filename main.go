@@ -217,10 +217,10 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	return
 }
 
-func handleViewEdit() (err error) {
+func handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
 	// handle new page
 	// get edit url parameter
-	page = r.URL.Path[1:]
+	page := r.URL.Path[1:]
 	log.Debugf("loading %s", page)
 	havePage, _ := fs.Exists(page)
 	initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
@@ -277,6 +277,7 @@ func handleViewEdit() (err error) {
 	})
 	return
 }
+
 func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	if r.URL.Path == "/" {
 		return handleFrontPage(w, r)
