@@ -99,7 +99,8 @@ func (fs *FileSystem) initializeDB() (err error) {
 	sqlStmt = `CREATE TABLE 
 	owners (
 		id INTEGER NOT NULL PRIMARY KEY,
-		name TEXT
+		name TEXT,
+		pass TEXT
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
