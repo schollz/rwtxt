@@ -76,11 +76,12 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 	sqlStmt := `CREATE TABLE 
 		fs (
-			id TEXT NOT NULL PRIMARY KEY, 
+			id TEXT NOT NULL PRIMARY KEY,
+			owner INTEGER,
 			slug TEXT,
 			created TIMESTAMP,
 			modified TIMESTAMP,
-			data TEXT
+			history TEXT
 		);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
@@ -94,6 +95,17 @@ func (fs *FileSystem) initializeDB() (err error) {
 	if err != nil {
 		err = errors.Wrap(err, "creating virtual table")
 	}
+
+	sqlStmt = `CREATE TABLE 
+	owners (
+		id INTEGER NOT NULL PRIMARY KEY,
+		name TEXT
+	);`
+	_, err = fs.db.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating owners table")
+	}
+
 	return
 }
 
