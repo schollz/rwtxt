@@ -19,35 +19,55 @@ const (
 	introText = "This note is empty. Click to edit it."
 )
 
-var indexTemplate *template.Template
+var viewEditTemplate *template.Template
+var mainTemplate *template.Template
+var loginTemplate *template.Template
 var fs *db.FileSystem
 
 type TemplateRender struct {
-	Title     string
-	Page      string
-	Rendered  template.HTML
-	File      db.File
-	IntroText template.JS
-	Rows      int
+	Title      string
+	Page       string
+	Rendered   template.HTML
+	File       db.File
+	IntroText  template.JS
+	Rows       int
+	RandomUUID string
 }
 
 func init() {
 	var err error
-	b, err := ioutil.ReadFile("templates/index.html")
+	b, err := ioutil.ReadFile("templates/viewedit.html")
 	if err != nil {
 		panic(err)
 	}
-	indexTemplate = template.Must(template.New("main").Parse(string(b)))
+	viewEditTemplate = template.Must(template.New("viewedit").Parse(string(b)))
 	b, err = ioutil.ReadFile("templates/header.html")
 	if err != nil {
 		panic(err)
 	}
-	indexTemplate = template.Must(indexTemplate.Parse(string(b)))
+	viewEditTemplate = template.Must(viewEditTemplate.Parse(string(b)))
 	b, err = ioutil.ReadFile("templates/footer.html")
 	if err != nil {
 		panic(err)
 	}
-	indexTemplate = template.Must(indexTemplate.Parse(string(b)))
+	viewEditTemplate = template.Must(viewEditTemplate.Parse(string(b)))
+
+	b, err = ioutil.ReadFile("templates/main.html")
+	if err != nil {
+		panic(err)
+	}
+	mainTemplate = template.Must(template.New("main").Parse(string(b)))
+	b, err = ioutil.ReadFile("templates/header.html")
+	if err != nil {
+		panic(err)
+	}
+	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
+	b, err = ioutil.ReadFile("templates/footer.html")
+	if err != nil {
+		panic(err)
+	}
+	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
+
 }
 
 func main() {
@@ -117,43 +137,35 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	log.Infof("%v %v %v %s", r.RemoteAddr, r.Method, r.URL, time.Since(t))
 }
 
-func handleFrontPage(w http.ResponseWriter, r *http.Request) (err error) {
+func handleSearch(w http.ResponseWriter, r *http.Request) (err error) {
 	query := r.URL.Query().Get("q")
-	if query != "" {
-		files, errGet := fs.Find(query)
-		if errGet != nil {
-			return errGet
-		}
-		initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
-		for _, fi := range files {
-			snippet := fi.Data
-			if len(snippet) > 50 {
-				snippet = snippet[:50]
-			}
-			reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
-			snippet = strings.Replace(snippet, "\n", " ", -1)
-			snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-			initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
-		}
-		indexTemplate.Execute(w, TemplateRender{
-			Title:    query + " pages",
-			Page:     query,
-			Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
-		})
-		return
+	files, errGet := fs.Find(query)
+	if errGet != nil {
+		return errGet
 	}
-	indexTemplate.Execute(w, TemplateRender{
-		Title: query + " pages",
-		Page:  query,
-		Rendered: utils.RenderMarkdownToHTML(fmt.Sprintf(`
-<a href='/%s' class='fr'>New</a>
-
-# cowyo2 
-
-The simplest way to take notes.
-			`, strings.ToLower(utils.UUID()))),
+	initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
+	for _, fi := range files {
+		snippet := fi.Data
+		if len(snippet) > 50 {
+			snippet = snippet[:50]
+		}
+		reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
+		snippet = strings.Replace(snippet, "\n", " ", -1)
+		snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
+		initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+	}
+	return viewEditTemplate.Execute(w, TemplateRender{
+		Title:    query + " pages",
+		Page:     query,
+		Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
 	})
-	return
+}
+
+func handleMain(w http.ResponseWriter, r *http.Request) (err error) {
+	return mainTemplate.Execute(w, TemplateRender{
+		Title:      "cowyo2",
+		RandomUUID: utils.UUID(),
+	})
 }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
@@ -249,7 +261,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
 				snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
 				initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
 			}
-			indexTemplate.Execute(w, TemplateRender{
+			viewEditTemplate.Execute(w, TemplateRender{
 				Title:    page + " pages",
 				Page:     page,
 				Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
@@ -273,7 +285,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
 		http.Redirect(w, r, "/"+page+"?edit=1", 302)
 	}
 	initialMarkdown += "\n\n" + f.Data
-	indexTemplate.Execute(w, TemplateRender{
+	viewEditTemplate.Execute(w, TemplateRender{
 		Page:      page,
 		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
 		File:      f,
@@ -286,7 +298,10 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
 
 func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	if r.URL.Path == "/" {
-		return handleFrontPage(w, r)
+		log.Debug("handle main")
+		return handleMain(w, r)
+	} else if r.URL.Query().Get("q") != "" {
+		return handleSearch(w, r)
 	} else if r.URL.Path == "/ws" {
 		return handleWebsocket(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
