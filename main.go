@@ -380,9 +380,13 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	// handle new page
 	// get edit url parameter
 	log.Debugf("loading %s", page)
-	havePage, _ := fs.Exists(page, domain)
+	havePage, err := fs.Exists(page, domain)
+	if err != nil {
+		return
+	}
 	initialMarkdown := ""
 	var f db.File
+	log.Debugf("%s %s %v", page, domain, havePage)
 	if havePage {
 		var files []db.File
 		files, err = fs.Get(page, domain)
@@ -406,8 +410,9 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			f = files[0]
 		}
 	} else {
+		uuid := utils.UUID()
 		f = db.File{
-			ID:       utils.UUID(),
+			ID:       uuid,
 			Created:  time.Now(),
 			Domain:   domain,
 			Modified: time.Now(),
@@ -419,6 +424,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			log.Error(err)
 			return handleMain(w, r, domain, "domain does not exist")
 		}
+		log.Debugf("saved: %+v", f)
 		http.Redirect(w, r, "/"+domain+"/"+page+"?edit=1", 302)
 		return
 	}

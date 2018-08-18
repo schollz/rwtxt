@@ -571,15 +571,11 @@ func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) 
 	fs.Lock()
 	defer fs.Unlock()
 
-	domainid, _, _ := fs.getDomainFromName(domain)
-	if domainid == 0 {
-		err = errors.New("domain does not exist")
-		return
-	}
 	files, err := fs.getAllFromPreparedQuerySingleString(`
-		SELECT id FROM fs WHERE id = ? AND domainid = ?`, id, domainid)
+		SELECT fs.id FROM fs INNER JOIN domains ON fs.domainid=domains.id WHERE fs.id = ? AND domains.name = ?`, id, domain)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
+		return
 	}
 	if len(files) > 0 {
 		exists = true
@@ -587,9 +583,12 @@ func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) 
 	}
 
 	files, err = fs.getAllFromPreparedQuerySingleString(`
-	SELECT id FROM fs WHERE slug = ? AND domainid = ?`, id, domainid)
+	SELECT fs.id FROM fs 
+	INNER JOIN domains ON fs.domainid=domains.id
+	WHERE fs.slug = ? AND domains.name = ?`, id, domain)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
+		return
 	}
 	if len(files) > 0 {
 		exists = true
