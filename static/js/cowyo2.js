@@ -110,8 +110,6 @@
          "domain": window.cowyo2.domain,
          "domain_key": window.cowyo2.domain_key
      }));
-     document.getElementById("saved").style.display = 'inline-block';
-     setTimeout(function(){ document.getElementById("saved").style.display = 'none'; }, 1000);
  };
 
  JD.serverResponse = function (jsonString) {
@@ -129,6 +127,11 @@
              history.pushState({}, newwindowname, newwindowname);
              document.title = newwindowname;
          }
+         document.getElementById("saved").style.display = 'inline-block';
+         setTimeout(function(){ document.getElementById("saved").style.display = 'none'; }, 1000);
+        } else if (data.message == "not saving") {
+            document.getElementById("notsaved").style.display = 'inline-block';
+            setTimeout(function(){ document.getElementById("notsaved").style.display = 'none'; }, 1000);                
      }
  }
 

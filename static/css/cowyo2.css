@@ -8,8 +8,8 @@
 }
 
 a {
-    border-bottom: 0.5px solid #0000FF;
-    color: #0000FF;
+    /* border-bottom: 0.5px solid #0000FF;
+    color: #0000FF; */
     text-decoration: none;
 }
 
@@ -56,11 +56,12 @@ code {
     float: right;
 }
 
-#saved {
+.icons {
     float: right;
     position: fixed;
     top: 1em;
     right: 1em;
+    display:none;
 }
 
 #editlink:hover {

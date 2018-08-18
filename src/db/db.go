@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"database/sql"
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/schollz/cowyo2/src/utils"
 	"github.com/schollz/sqlite3dump"
+	"github.com/schollz/versionedtext"
 )
 
 type FileSystem struct {
@@ -31,6 +33,7 @@ type File struct {
 	Modified time.Time
 	Data     string
 	Domain   string
+	History  versionedtext.VersionedText
 }
 
 // New will initialize a filesystem
@@ -110,7 +113,10 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 
 	err = fs.setDomain("public", "")
-
+	if err != nil {
+		return
+	}
+	fs.DumpSQL()
 	return
 }
 
@@ -148,6 +154,14 @@ func (fs *FileSystem) Save(f File) (err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
+	// get current history and then update the history
+	files, _ := fs.get(f.ID, f.Domain)
+	if len(files) == 1 {
+		f.History = files[0].History
+		f.History.Update(f.Data)
+	} else {
+		f.History = versionedtext.NewVersionedText(f.Data)
+	}
 	// make sure domain exists
 	if f.Domain == "" {
 		f.Domain = "public"
@@ -170,11 +184,13 @@ func (fs *FileSystem) Save(f File) (err error) {
 		domainid,
 		slug,
 		created,
-		modified
+		modified,
+		history
 	) 
 		values 	
 	(
 		?, 
+		?,
 		?,
 		?,
 		?,
@@ -184,12 +200,15 @@ func (fs *FileSystem) Save(f File) (err error) {
 		return errors.Wrap(err, "stmt Save")
 	}
 
+	historyBytes, _ := json.Marshal(f.History)
+
 	_, err = stmt.Exec(
 		f.ID,
 		domainid,
 		f.Slug,
 		f.Created,
 		time.Now(),
+		string(historyBytes),
 	)
 	if err != nil {
 		return errors.Wrap(err, "exec Save")
@@ -208,7 +227,8 @@ func (fs *FileSystem) Save(f File) (err error) {
 	stmt2, err := tx2.Prepare(`
 	UPDATE fs SET 
 		slug = ?,
-		modified = ?
+		modified = ?,
+		history = ?
 	WHERE
 		id = ?
 	`)
@@ -220,6 +240,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	_, err = stmt2.Exec(
 		f.Slug,
 		time.Now(),
+		string(historyBytes),
 		f.ID,
 	)
 	if err != nil {
@@ -411,9 +432,13 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, key string
 func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
+	return fs.get(id, domain)
+}
+
+func (fs *FileSystem) get(id string, domain string) (files []File, err error) {
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs 
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history FROM fs 
 		INNER JOIN fts ON fs.id=fts.id 
 		INNER JOIN domains ON fs.domainid=domains.id
 		WHERE 
@@ -422,7 +447,7 @@ func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 			domains.name = ?
 		ORDER BY modified DESC`, id, domain)
 	if err != nil {
-		err = errors.Wrap(err, "Stat")
+		err = errors.Wrap(err, "get from id")
 		return
 	}
 	if len(files) > 0 {
@@ -430,7 +455,8 @@ func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs 
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history 
+	FROM fs 
 	INNER JOIN fts ON fs.id=fts.id 
 	INNER JOIN domains ON fs.domainid=domains.id
 	WHERE 
@@ -484,13 +510,23 @@ func (fs *FileSystem) LastModified() (lastModified time.Time, err error) {
 }
 
 // Find returns the info from a file
-func (fs *FileSystem) Find(text string) (files []File, err error) {
+func (fs *FileSystem) Find(text string, domain string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id IN (SELECT id FROM fts WHERE data MATCH ?) ORDER BY modified DESC`, text)
-	log.Printf(`SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id IN (SELECT id FROM fts WHERE data MATCH '%s') ORDER BY modified DESC`, text)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history FROM fs 
+			INNER JOIN fts ON fs.id=fts.id 
+			WHERE fs.id IN (
+				SELECT id FROM fts WHERE data MATCH ? 
+				AND 
+				id IN (
+					SELECT fs.id FROM fs INNER JOIN domains
+					ON fs.domainid = domains.id
+					WHERE domains.name = ?
+				)
+			) 
+			ORDER BY modified DESC`, text, domain)
 	return
 }
 
@@ -559,16 +595,25 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 	files = []File{}
 	for rows.Next() {
 		var f File
+		var history sql.NullString
 		err = rows.Scan(
 			&f.ID,
 			&f.Slug,
 			&f.Created,
 			&f.Modified,
 			&f.Data,
+			&history,
 		)
 		if err != nil {
-			err = errors.Wrap(err, "getRows")
+			err = errors.Wrap(err, "get rows of file")
 			return
+		}
+		if history.Valid {
+			err = json.Unmarshal([]byte(history.String), &f.History)
+			if err != nil {
+				err = errors.Wrap(err, "could not parse history")
+				return
+			}
 		}
 		files = append(files, f)
 	}

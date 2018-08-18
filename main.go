@@ -116,8 +116,7 @@ func serve() (err error) {
 	go func() {
 		lastDumped := time.Now()
 		for {
-			time.Sleep(1 * time.Second)
-			fs.DumpSQL()
+			time.Sleep(10 * time.Second)
 			lastModified, errGet := fs.LastModified()
 			if errGet != nil {
 				panic(errGet)
@@ -147,11 +146,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
-	files, errGet := fs.Find(query)
+	files, errGet := fs.Find(query, domain)
 	if errGet != nil {
 		return errGet
 	}
-	initialMarkdown := fmt.Sprintf("<a href='/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", utils.UUID(), len(files), query)
+	initialMarkdown := fmt.Sprintf("<a href='/%s/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", domain, utils.UUID(), len(files), query)
 	for _, fi := range files {
 		snippet := fi.Data
 		if len(snippet) > 50 {
@@ -160,7 +159,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 		reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
 		snippet = strings.Replace(snippet, "\n", " ", -1)
 		snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-		initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+		initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, domain, fi.ID, snippet)
 	}
 	return viewEditTemplate.Execute(w, TemplateRender{
 		Title:    query + " pages",
@@ -251,17 +250,23 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 
 		if !domainChecked {
 			domainChecked = true
-			_, key, _ := fs.GetDomainFromName(p.Domain)
-			if key != "" && p.DomainKey == key {
+			if p.Domain == "public" {
 				domainValidated = true
+			} else {
+				_, key, _ := fs.GetDomainFromName(p.Domain)
+				if key != "" && p.DomainKey == key {
+					domainValidated = true
+				}
 			}
 		}
 		// save it
 		if p.ID != "" && domainValidated {
+			log.Debug("saving")
 			if p.Domain == "" {
 				p.Domain = "public"
 			}
 			data := strings.TrimSpace(p.Data)
+			log.Debug(data, introText)
 			if data == introText {
 				data = ""
 			}
@@ -272,8 +277,9 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 				Created: time.Now(),
 				Domain:  p.Domain,
 			})
+			log.Debug("saved")
 			if err != nil {
-				log.Debug(err)
+				log.Error(err)
 			}
 			fs, _ := fs.Get(p.Slug, p.Domain)
 			err = c.WriteJSON(Payload{
@@ -288,6 +294,13 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			}
 		} else {
 			log.Debug("not saving")
+			err = c.WriteJSON(Payload{
+				Message: "not saving",
+			})
+			if err != nil {
+				log.Debug("write:", err)
+				break
+			}
 		}
 	}
 	return
@@ -318,7 +331,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	// get edit url parameter
 	log.Debugf("loading %s", page)
 	havePage, _ := fs.Exists(page, domain)
-	initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
+	initialMarkdown := ""
 	var f db.File
 	if havePage {
 		var files []db.File
@@ -356,12 +369,14 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			Modified: time.Now(),
 		}
 		f.Slug = page
-		f.Data = introText
+		f.Data = ""
 		err = fs.Save(f)
 		if err != nil {
 			log.Error(err)
+			return handleMain(w, r, domain, "domain does not exist")
 		}
 		http.Redirect(w, r, "/"+domain+"/"+page+"?edit=1", 302)
+		return
 	}
 	initialMarkdown += "\n\n" + f.Data
 	cookie, err := r.Cookie(domain)
@@ -372,6 +387,9 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		if errGet == nil && cookie.Value != "" && cookie.Value == key && key != "" {
 			domainkey = cookie.Value
 		}
+	}
+	if f.Data == "" {
+		f.Data = introText
 	}
 	return viewEditTemplate.Execute(w, TemplateRender{
 		Page:      page,
@@ -391,10 +409,10 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := "public"
 	page := ""
 	if len(fields) > 2 {
-		page = strings.ToLower(fields[2])
+		page = strings.TrimSpace(strings.ToLower(fields[2]))
 	}
 	if len(fields) > 1 {
-		domain = strings.ToLower(fields[1])
+		domain = strings.TrimSpace(strings.ToLower(fields[1]))
 	}
 	if r.URL.Path == "/" {
 		// special path /
