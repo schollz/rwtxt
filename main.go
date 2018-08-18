@@ -16,8 +16,9 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
-	"github.com/schollz/cowyo2/src/db"
-	"github.com/schollz/cowyo2/src/utils"
+	"github.com/schollz/rwio/src/db"
+	"github.com/schollz/rwio/src/utils"
+	swearjar "github.com/schollz/swearjar-go"
 )
 
 const (
@@ -29,6 +30,7 @@ var mainTemplate *template.Template
 var loginTemplate *template.Template
 var listTemplate *template.Template
 var fs *db.FileSystem
+var swearChecker swearjar.Swears
 
 type TemplateRender struct {
 	Title        string
@@ -51,6 +53,12 @@ type TemplateRender struct {
 
 func init() {
 	var err error
+
+	swearChecker, err = swearjar.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	b, err := Asset("viewedit.html")
 	if err != nil {
 		panic(err)
@@ -132,7 +140,7 @@ var wsupgrader = websocket.Upgrader{
 }
 
 func serve() (err error) {
-	fs, err = db.New("cowyo2.db")
+	fs, err = db.New("rwio.db")
 	if err != nil {
 		log.Error(err)
 		return
@@ -223,7 +231,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 	domainid, _, _ := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
-		Title:        "cowyo2",
+		Title:        "rwio",
 		Message:      message,
 		Domain:       domain,
 		RandomUUID:   utils.UUID(),
@@ -261,7 +269,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 		return handleMain(w, r, "public", "domain key cannot be empty")
 	}
 	sha_512 := sha512.New()
-	sha_512.Write([]byte("cowyo2"))
+	sha_512.Write([]byte("rwio"))
 	sha_512.Write([]byte(domainKey))
 	domainKeyHashed := fmt.Sprintf("%x", sha_512.Sum(nil))
 
@@ -317,8 +325,12 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 				}
 			}
 		}
+
+		// check profanity
+		profane, _, _ := swearChecker.Scorecard(p.Data)
+
 		// save it
-		if p.ID != "" && domainValidated {
+		if p.ID != "" && domainValidated && !profane {
 			log.Debug("saving")
 			if p.Domain == "" {
 				p.Domain = "public"
@@ -328,6 +340,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			if data == introText {
 				data = ""
 			}
+
 			err = fs.Save(db.File{
 				ID:      p.ID,
 				Slug:    p.Slug,
@@ -370,16 +383,16 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	w.Header().Set("Cache-Control", "public, max-age=7776000")
 	w.Header().Set("Content-Encoding", "gzip")
 	log.Debug(page)
-	if strings.HasSuffix(page, "cowyo2.js") {
-		b, _ := Asset("cowyo2.js")
+	if strings.HasSuffix(page, "rwio.js") {
+		b, _ := Asset("rwio.js")
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(b)
 	} else if strings.HasSuffix(page, "dropzone.css") {
 		b, _ := Asset("dropzone.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
-	} else if strings.HasSuffix(page, "cowyo2.css") {
-		b, _ := Asset("cowyo2.css")
+	} else if strings.HasSuffix(page, "rwio.css") {
+		b, _ := Asset("rwio.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
 	} else if strings.HasSuffix(page, "dropzone.js") {
