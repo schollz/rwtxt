@@ -484,6 +484,12 @@ func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
+	domain := r.URL.Query().Get("domain")
+	if !isSignedIn(w, r, domain) || domain == "public" {
+		http.Error(w, "need to be logged in", http.StatusForbidden)
+		return
+	}
+
 	file, info, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

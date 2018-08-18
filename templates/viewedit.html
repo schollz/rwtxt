@@ -9,7 +9,7 @@
 
     {{.Rendered}}
 </div>
-<form id="dropzoneForm" action="/upload" class="dropzone">
+<form id="dropzoneForm" action="/upload?domain={{.Domain}}" class="dropzone">
 <textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>
 </form>
 </div>
