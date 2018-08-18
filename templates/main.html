@@ -8,7 +8,7 @@
 	{{end}}
 
 	<h1>Welcome</h1>
-	<p>This is <em>cowyo</em>, a completely simple text-based web content management system. Write anything you want, or just paste things to remember.
+	<p>This is <em>cowyo</em>, a completely simple web-based content management system. Write anything you want, or just paste things to remember.
 	</p>
 
 	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}/</code>.
@@ -43,8 +43,6 @@
 
 
 	<p>
-		
-		
 			{{if eq .Domain "public"}}
 				<h2>Create domain</h2>
 				<p>Creating a domain allows you to make new posts that only you can edit (but anyone can view if they have the link).</p>
