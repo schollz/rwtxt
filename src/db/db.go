@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/schollz/cowyo2/src/utils"
 	"github.com/schollz/sqlite3dump"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type FileSystem struct {
@@ -31,7 +30,7 @@ type File struct {
 	Created  time.Time
 	Modified time.Time
 	Data     string
-	DomainID int
+	Domain   string
 }
 
 // New will initialize a filesystem
@@ -103,7 +102,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	domains (
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
-		pass BLOB
+		key TEXT
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
@@ -149,6 +148,15 @@ func (fs *FileSystem) Save(f File) (err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
+	// make sure domain exists
+	if f.Domain == "" {
+		f.Domain = "public"
+	}
+	domainid, _, _ := fs.getDomainFromName(f.Domain)
+	if domainid == 0 {
+		return errors.New("domain does not exist")
+	}
+
 	tx, err := fs.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
@@ -158,7 +166,8 @@ func (fs *FileSystem) Save(f File) (err error) {
 	INSERT OR IGNORE INTO
 		fs
 	(
-		id, 
+		id,
+		domainid,
 		slug,
 		created,
 		modified
@@ -166,6 +175,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 		values 	
 	(
 		?, 
+		?,
 		?,
 		?,
 		?
@@ -176,6 +186,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 
 	_, err = stmt.Exec(
 		f.ID,
+		domainid,
 		f.Slug,
 		f.Created,
 		time.Now(),
@@ -297,42 +308,35 @@ func (fs *FileSystem) Len() (l int, err error) {
 	return
 }
 
-// HashPassword generates a bcrypt hash of the password using work factor 14.
-func HashPassword(password []byte) ([]byte, error) {
-	return bcrypt.GenerateFromPassword(password, 14)
-}
-
-func (fs *FileSystem) SetDomain(domain, pass string) (err error) {
+// SetDomain will set the key of a domain, throws an error if it already exists
+func (fs *FileSystem) SetDomain(domain, key string) (err error) {
 	// first check if it is a domain
 	fs.Lock()
 	defer fs.Unlock()
-	return fs.setDomain(domain, pass)
+	domainid, _, _ := fs.getDomainFromName(domain)
+	if domainid != 0 {
+		err = errors.New("domain already exists")
+		return
+	}
+	return fs.setDomain(domain, key)
 }
 
-func (fs *FileSystem) setDomain(domain, pass string) (err error) {
+func (fs *FileSystem) setDomain(domain, key string) (err error) {
 	domain = strings.ToLower(domain)
-	_, err = fs.getDomainID(domain)
-	if err == nil {
-		return
-	}
 
-	hashedPasswordBytes, err := HashPassword([]byte(pass))
-	if err != nil {
-		return
-	}
 	tx, err := fs.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
 	}
 
 	stmt, err := tx.Prepare(`
-	INSERT OR IGNORE INTO
+	INSERT INTO
 		domains
 	(
 		name, 
-		pass
+		key
 	) 
-		values 	
+		VALUES 	
 	(
 		?,
 		?
@@ -343,7 +347,7 @@ func (fs *FileSystem) setDomain(domain, pass string) (err error) {
 
 	_, err = stmt.Exec(
 		domain,
-		hashedPasswordBytes,
+		key,
 	)
 	if err != nil {
 		return errors.Wrap(err, "exec Save")
@@ -354,20 +358,26 @@ func (fs *FileSystem) setDomain(domain, pass string) (err error) {
 		return errors.Wrap(err, "commit Save")
 	}
 
+	log.Println("trying to insert", domain, key)
+
 	return
 }
 
 // GetDomainID returns the domain id, throwing an error if it doesn't exist
-func (fs *FileSystem) GetDomainID(domain string) (domainid int, err error) {
+func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, key string, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	domain = strings.ToLower(domain)
-	return fs.getDomainID(domain)
+	domainid, key, err = fs.getDomainFromName(domain)
+	if domainid == 0 {
+		err = errors.New("domain " + domain + " does not exist")
+	}
+	return
 }
 
-func (fs *FileSystem) getDomainID(domain string) (domainid int, err error) {
+func (fs *FileSystem) getDomainFromName(domain string) (domainid int, key string, err error) {
 	// prepare statement
-	query := "SELECT id FROM domains WHERE name = ?"
+	query := "SELECT id,key FROM domains WHERE name = ?"
 	stmt, err := fs.db.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
@@ -384,7 +394,7 @@ func (fs *FileSystem) getDomainID(domain string) (domainid int, err error) {
 	// loop through rows
 	defer rows.Close()
 	for rows.Next() {
-		err = rows.Scan(&domainid)
+		err = rows.Scan(&domainid, &key)
 		if err != nil {
 			err = errors.Wrap(err, "getRows")
 			return
@@ -398,12 +408,19 @@ func (fs *FileSystem) getDomainID(domain string) (domainid int, err error) {
 }
 
 // Get returns the info from a file
-func (fs *FileSystem) Get(id string) (files []File, err error) {
+func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id = ? ORDER BY modified DESC`, id)
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs 
+		INNER JOIN fts ON fs.id=fts.id 
+		INNER JOIN domains ON fs.domainid=domains.id
+		WHERE 
+			fs.id = ? 
+			AND
+			domains.name = ?
+		ORDER BY modified DESC`, id, domain)
 	if err != nil {
 		err = errors.Wrap(err, "Stat")
 		return
@@ -413,7 +430,14 @@ func (fs *FileSystem) Get(id string) (files []File, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs INNER JOIN fts ON fs.id=fts.id WHERE fs.id IN (SELECT id FROM fs WHERE slug=?) ORDER BY modified DESC`, id)
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data FROM fs 
+	INNER JOIN fts ON fs.id=fts.id 
+	INNER JOIN domains ON fs.domainid=domains.id
+	WHERE 
+		fs.id IN (SELECT id FROM fs WHERE slug=?) 
+		AND
+		domains.name = ?
+		ORDER BY modified DESC`, id, domain)
 	if err != nil {
 		err = errors.Wrap(err, "get from slug")
 		return
@@ -484,12 +508,17 @@ func (fs *FileSystem) idExists(id string) (exists bool, err error) {
 }
 
 // Exists returns whether specified id or slug exists
-func (fs *FileSystem) Exists(id string) (exists bool, err error) {
+func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
+	domainid, _, _ := fs.getDomainFromName(domain)
+	if domainid == 0 {
+		err = errors.New("domain does not exist")
+		return
+	}
 	files, err := fs.getAllFromPreparedQuerySingleString(`
-		SELECT id FROM fs WHERE id = ?`, id)
+		SELECT id FROM fs WHERE id = ? AND domainid = ?`, id, domainid)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 	}
@@ -499,7 +528,7 @@ func (fs *FileSystem) Exists(id string) (exists bool, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuerySingleString(`
-	SELECT id FROM fs WHERE slug = ?`, id)
+	SELECT id FROM fs WHERE slug = ? AND domainid = ?`, id, domainid)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 	}

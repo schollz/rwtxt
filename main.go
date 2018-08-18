@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha512"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -34,8 +35,9 @@ type TemplateRender struct {
 	RandomUUID string
 	Domain     string
 	DomainID   int
-	DomainPass string
+	DomainKey  string
 	SignedIn   bool
+	Message    string
 }
 
 func init() {
@@ -88,13 +90,13 @@ func main() {
 }
 
 type Payload struct {
-	ID         string `json:"id,omitempty"`
-	DomainID   int    `json:"domainid,omitempty"`
-	DomainPass string `json:"domainpass,omitempty"`
-	Data       string `json:"data,omitempty"`
-	Slug       string `json:"slug,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Success    bool   `json:"success"`
+	ID        string `json:"id,omitempty"`
+	DomainKey string `json:"domain_key,omitempty"`
+	Domain    string `json:"domain,omitempty"`
+	Data      string `json:"data,omitempty"`
+	Slug      string `json:"slug,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Success   bool   `json:"success"`
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -114,7 +116,8 @@ func serve() (err error) {
 	go func() {
 		lastDumped := time.Now()
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(1 * time.Second)
+			fs.DumpSQL()
 			lastModified, errGet := fs.LastModified()
 			if errGet != nil {
 				panic(errGet)
@@ -166,40 +169,77 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 	})
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request, domain string) (err error) {
+func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
+	signedIn := false
+	if domain != "" && domain != "public" {
+		cookie, err := r.Cookie(domain)
+		if err == nil {
+			log.Debugf("got cookie %+v", cookie.Value)
+			_, key, err := fs.GetDomainFromName(domain)
+			log.Debug(domain, key, err)
+			if err == nil && cookie.Value != "" && cookie.Value == key && key != "" {
+				signedIn = true
+			}
+		}
+	} else {
+		signedIn = true
+	}
+
 	return mainTemplate.Execute(w, TemplateRender{
 		Title:      "cowyo2",
+		Message:    message,
 		Domain:     domain,
 		RandomUUID: utils.UUID(),
-		SignedIn:   false || domain == "public",
+		SignedIn:   signedIn,
 	})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
-	domain := r.FormValue("domain")
-	domainKey := r.FormValue("key")
-	if domain != "" && domainKey != "" {
-		// sign in
+	domain := strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
+	domainKey := strings.TrimSpace(r.FormValue("key"))
+	if domain == "public" || domain == "" {
+		return handleMain(w, r, "public", "")
 	}
-	log.Debug(domain, domainKey)
-	return mainTemplate.Execute(w, TemplateRender{
-		Title:      "cowyo2",
-		RandomUUID: utils.UUID(),
-		Domain:     domain,
-		SignedIn:   false,
-	})
+	if domainKey == "" {
+		return handleMain(w, r, "public", "domain key cannot be empty")
+	}
+	sha_512 := sha512.New()
+	sha_512.Write([]byte("cowyo2"))
+	sha_512.Write([]byte(domainKey))
+	domainKeyHashed := fmt.Sprintf("%x", sha_512.Sum(nil))
+
+	// check if exists
+	_, key, err := fs.GetDomainFromName(domain)
+	if err == nil {
+		// exists make sure that the keys match
+		if domainKeyHashed != key {
+			return handleMain(w, r, domain, "incorrect key")
+		}
+	} else {
+		// key doesn't exists, create it
+		log.Debugf("domain '%s' doesn't exist, creating it with %s", domain, domainKeyHashed)
+		err = fs.SetDomain(domain, domainKeyHashed)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
+	expiration := time.Now().Add(365 * 24 * time.Hour)
+	cookie := http.Cookie{Name: domain, Value: domainKeyHashed, Expires: expiration}
+	http.SetCookie(w, &cookie)
+	http.Redirect(w, r, "/"+domain, 302)
+	return nil
 }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
-
-	cookie, err := r.Cookie("username")
-	log.Debugf("getting cookie: [%+v], %+v", cookie, err)
 	// handle websockets on this page
 	c, errUpgrade := wsupgrader.Upgrade(w, r, nil)
 	if errUpgrade != nil {
 		return errUpgrade
 	}
 	defer c.Close()
+	domainChecked := false
+	domainValidated := false
 	var p Payload
 	for {
 		err := c.ReadJSON(&p)
@@ -209,8 +249,18 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 		log.Debugf("recv: %v", p)
 
+		if !domainChecked {
+			domainChecked = true
+			_, key, _ := fs.GetDomainFromName(p.Domain)
+			if key != "" && p.DomainKey == key {
+				domainValidated = true
+			}
+		}
 		// save it
-		if p.ID != "" {
+		if p.ID != "" && domainValidated {
+			if p.Domain == "" {
+				p.Domain = "public"
+			}
 			data := strings.TrimSpace(p.Data)
 			if data == introText {
 				data = ""
@@ -220,11 +270,12 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 				Slug:    p.Slug,
 				Data:    data,
 				Created: time.Now(),
+				Domain:  p.Domain,
 			})
 			if err != nil {
 				log.Debug(err)
 			}
-			fs, _ := fs.Get(p.Slug)
+			fs, _ := fs.Get(p.Slug, p.Domain)
 			err = c.WriteJSON(Payload{
 				ID:      p.ID,
 				Slug:    p.Slug,
@@ -235,6 +286,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 				log.Debug("write:", err)
 				break
 			}
+		} else {
+			log.Debug("not saving")
 		}
 	}
 	return
@@ -261,22 +314,18 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string) (err error) {
-
-	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookie := http.Cookie{Name: "username", Value: "astaxie", Expires: expiration}
-	http.SetCookie(w, &cookie)
-	log.Debug("setting cookie")
 	// handle new page
 	// get edit url parameter
 	log.Debugf("loading %s", page)
-	havePage, _ := fs.Exists(page)
+	havePage, _ := fs.Exists(page, domain)
 	initialMarkdown := "<a href='#' id='editlink' class='fr'>Edit</a>"
 	var f db.File
 	if havePage {
 		var files []db.File
-		files, err = fs.Get(page)
+		files, err = fs.Get(page, domain)
 		if err != nil {
 			log.Error(err)
+			return handleMain(w, r, domain, err.Error())
 		}
 		if len(files) > 1 {
 			initialMarkdown = fmt.Sprintf("<a href='/%s/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", domain, utils.UUID(), len(files), page)
@@ -303,6 +352,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		f = db.File{
 			ID:       utils.UUID(),
 			Created:  time.Now(),
+			Domain:   domain,
 			Modified: time.Now(),
 		}
 		f.Slug = page
@@ -314,9 +364,14 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		http.Redirect(w, r, "/"+domain+"/"+page+"?edit=1", 302)
 	}
 	initialMarkdown += "\n\n" + f.Data
-	domainid, err := fs.GetDomainID(domain)
-	if err != nil {
-		return
+	cookie, err := r.Cookie(domain)
+	domainkey := ""
+	if err == nil {
+		log.Debugf("got cookie %+v", cookie.Value)
+		_, key, errGet := fs.GetDomainFromName(domain)
+		if errGet == nil && cookie.Value != "" && cookie.Value == key && key != "" {
+			domainkey = cookie.Value
+		}
 	}
 	return viewEditTemplate.Execute(w, TemplateRender{
 		Page:      page,
@@ -326,7 +381,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		Title:     f.Slug,
 		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
 		Domain:    domain,
-		DomainID:  domainid,
+		DomainKey: domainkey,
 	})
 
 }
@@ -357,7 +412,7 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 		if r.URL.Query().Get("q") != "" {
 			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
 		}
-		return handleMain(w, r, domain)
+		return handleMain(w, r, domain, "")
 	} else if domain != "" && page != "" {
 		log.Debug("handle view edit")
 		return handleViewEdit(w, r, domain, page)

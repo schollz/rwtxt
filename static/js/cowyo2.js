@@ -107,6 +107,8 @@
          "id": window.cowyo2.file_id,
          "slug": slugify(markdown),
          "data": markdown,
+         "domain": window.cowyo2.domain,
+         "domain_key": window.cowyo2.domain_key
      }));
      document.getElementById("saved").style.display = 'inline-block';
      setTimeout(function(){ document.getElementById("saved").style.display = 'none'; }, 1000);
