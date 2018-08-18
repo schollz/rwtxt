@@ -17,7 +17,9 @@
 	{{if eq .Domain "public"}}Anyone can view and edit these pages. To keep content to yourself, create a domain (below).{{else}}{{ if .SignedIn}}Anyone
 		can view these pages. Only you can edit pages, since you are are logged in (log out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
-	<p>
+
+		{{ if .SignedIn}}
+		<p>
 		<h2>Recent pages</h2>
 		<ul>
 			{{range .Files}}
@@ -35,6 +37,7 @@
 				<input type="submit" value="Search">
 			</form>
 		</p>
+	{{end}}
 	{{else}}
 	This domain does not yet exist. You can create it below.</p>{{end}}
 

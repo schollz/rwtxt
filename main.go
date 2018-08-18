@@ -165,6 +165,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
+	if !isSignedIn(w, r, domain) {
+		return handleMain(w, r, domain, "need to log in to search")
+	}
 	files, errGet := fs.Find(query, domain)
 	if errGet != nil {
 		return errGet
