@@ -4,7 +4,6 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -47,49 +46,49 @@ type TemplateRender struct {
 
 func init() {
 	var err error
-	b, err := ioutil.ReadFile("templates/viewedit.html")
+	b, err := Asset("viewedit.html")
 	if err != nil {
 		panic(err)
 	}
 	viewEditTemplate = template.Must(template.New("viewedit").Parse(string(b)))
-	b, err = ioutil.ReadFile("templates/header.html")
+	b, err = Asset("header.html")
 	if err != nil {
 		panic(err)
 	}
 	viewEditTemplate = template.Must(viewEditTemplate.Parse(string(b)))
-	b, err = ioutil.ReadFile("templates/footer.html")
+	b, err = Asset("footer.html")
 	if err != nil {
 		panic(err)
 	}
 	viewEditTemplate = template.Must(viewEditTemplate.Parse(string(b)))
 
-	b, err = ioutil.ReadFile("templates/main.html")
+	b, err = Asset("main.html")
 	if err != nil {
 		panic(err)
 	}
 	mainTemplate = template.Must(template.New("main").Parse(string(b)))
-	b, err = ioutil.ReadFile("templates/header.html")
+	b, err = Asset("header.html")
 	if err != nil {
 		panic(err)
 	}
 	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
-	b, err = ioutil.ReadFile("templates/footer.html")
+	b, err = Asset("footer.html")
 	if err != nil {
 		panic(err)
 	}
 	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
 
-	b, err = ioutil.ReadFile("templates/list.html")
+	b, err = Asset("list.html")
 	if err != nil {
 		panic(err)
 	}
 	listTemplate = template.Must(template.New("main").Parse(string(b)))
-	b, err = ioutil.ReadFile("templates/header.html")
+	b, err = Asset("header.html")
 	if err != nil {
 		panic(err)
 	}
 	listTemplate = template.Must(listTemplate.Parse(string(b)))
-	b, err = ioutil.ReadFile("templates/footer.html")
+	b, err = Asset("footer.html")
 	if err != nil {
 		panic(err)
 	}
@@ -263,7 +262,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	if err == nil {
 		// exists make sure that the keys match
 		if domainKeyHashed != key {
-			return handleMain(w, r, domain, "This domain already exists and you did not enter the correct key.")
+			return handleMain(w, r, domain, "You did not enter the correct key to edit on this domain.")
 		}
 	} else {
 		// key doesn't exists, create it
@@ -361,15 +360,15 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	page := r.URL.Path
 	w.Header().Set("Vary", "Accept-Encoding")
 	w.Header().Set("Cache-Control", "public, max-age=7776000")
-	// cg.Writer.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Content-Encoding", "gzip")
 	log.Debug(page)
 	if strings.HasSuffix(page, "cowyo2.js") {
-		b, _ := ioutil.ReadFile("static/js/cowyo2.js")
+		b, _ := Asset("cowyo2.js")
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(b)
 		return
 	} else if strings.HasSuffix(page, "cowyo2.css") {
-		b, _ := ioutil.ReadFile("static/css/cowyo2.css")
+		b, _ := Asset("cowyo2.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
 		return

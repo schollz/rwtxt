@@ -124,6 +124,16 @@ func (fs *FileSystem) initializeDB() (err error) {
 func (fs *FileSystem) DumpSQL() (err error) {
 	fs.Lock()
 	defer fs.Unlock()
+
+	// first purge the database of old stuff
+	_, err = fs.db.Exec(`
+	DELETE FROM fs WHERE id IN (SELECT id FROM fts where data == '');
+	DELETE FROM fts WHERE data = '';
+	`)
+	if err != nil {
+		return
+	}
+
 	fi, err := os.Create(fs.name + ".sql.gz")
 	if err != nil {
 		return

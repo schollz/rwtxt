@@ -113,6 +113,10 @@ snackbar */
     animation: fadein 0.5s, fadeout 0.5s 2.5s;
 }
 
+img {
+    width: 100%;
+}
+
 @-webkit-keyframes fadein {
     from {bottom: 0; opacity: 0;} 
     to {bottom: 30px; opacity: 1;}
