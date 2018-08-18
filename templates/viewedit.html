@@ -4,7 +4,7 @@
 <span id="notsaved" class="icons">❌</span>
 <div class="fonty" id="rendered">
     <span class="fr"><a href="/{{.Domain}}">Back</a><br>
-        <a id='editlink'>Edit</a></span>
+        {{if .SignedIn}}<a id='editlink'>Edit</a>{{end}}</span>
         
 
     {{.Rendered}}

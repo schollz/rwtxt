@@ -463,6 +463,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
 		Domain:    domain,
 		DomainKey: domainkey,
+		SignedIn:  isSignedIn(w, r, domain),
 	})
 
 }
