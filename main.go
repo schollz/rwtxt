@@ -185,16 +185,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 	if errGet != nil {
 		return errGet
 	}
-	for i, fi := range files {
-		snippet := fi.Data
-		if len(snippet) > 50 {
-			snippet = snippet[:50]
-		}
-		reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
-		snippet = strings.Replace(snippet, "\n", " ", -1)
-		snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-		files[i].Data = snippet
-	}
 	return handleList(w, r, domain, query, files)
 }
 

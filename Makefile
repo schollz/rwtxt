@@ -12,7 +12,7 @@ build:
 	gzip -9 -c static/js/dropzone.js > assets/dropzone.js
 	cd assets && go-bindata * && cd ..
 	mv assets/bindata.go .
-	go build -v --tags "fts5"	
+	go build -v --tags "fts4"	
 
 run: build
 	./rwio

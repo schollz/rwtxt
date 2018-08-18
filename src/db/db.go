@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"os"
@@ -34,6 +35,7 @@ type File struct {
 	Data     string
 	Domain   string
 	History  versionedtext.VersionedText
+	DataHTML template.HTML
 }
 
 // New will initialize a filesystem
@@ -95,7 +97,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 
 	sqlStmt = `CREATE VIRTUAL TABLE 
-		fts USING fts5 (id,data);`
+		fts USING fts4 (id,data);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating virtual table")
@@ -603,17 +605,11 @@ func (fs *FileSystem) Find(text string, domain string) (files []File, err error)
 	defer fs.Unlock()
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history FROM fs 
-			INNER JOIN fts ON fs.id=fts.id 
-			WHERE fs.id IN (
-				SELECT id FROM fts WHERE data MATCH ? 
-				AND 
-				id IN (
-					SELECT fs.id FROM fs INNER JOIN domains
-					ON fs.domainid = domains.id
-					WHERE domains.name = ?
-				)
-			) 
+		SELECT fs.id,fs.slug,fs.created,fs.modified,snippet(fts),fs.history FROM fts 
+			INNER JOIN fs ON fs.id=fts.id 
+			INNER JOIN domains ON fs.domainid=domains.id
+			WHERE fts.data MATCH ?
+			AND domains.name = ?
 			ORDER BY modified DESC`, text, domain)
 	return
 }
@@ -702,6 +698,7 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 				return
 			}
 		}
+		f.DataHTML = template.HTML(f.Data)
 		files = append(files, f)
 	}
 	err = rows.Err()
