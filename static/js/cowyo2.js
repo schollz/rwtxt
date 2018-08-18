@@ -16,6 +16,7 @@ const socketCloseListener = (event) => {
     socket.addEventListener('open', socketOpenListener);
     socket.addEventListener('message', socketMessageListener);
     socket.addEventListener('close', socketCloseListener);
+    console.log('opening socket to ' + url)
 };
 
 // get URL query parameters 
