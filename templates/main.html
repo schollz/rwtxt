@@ -23,7 +23,7 @@
 			{{range .Files}}
 			<li>
 				<small>{{.Modified.Format "Mon Jan 2 2006"}}</small>
-				<a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
+				<a href="/{{$.Domain}}/{{.ID}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}</a>
 			</li>
 			{{end}}
 		</ul>
