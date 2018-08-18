@@ -192,6 +192,25 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		SignedIn:   signedIn,
 	})
 }
+func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
+	domain := r.URL.Query().Get("d")
+	var message string
+	_, err = r.Cookie(domain)
+	if err == nil {
+		c := &http.Cookie{
+			Name:     domain,
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			HttpOnly: true,
+		}
+		http.SetCookie(w, c)
+		message = "You are logged out."
+	} else {
+		message = "You are not logged in."
+	}
+	return handleMain(w, r, domain, message)
+}
 
 func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
@@ -212,7 +231,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	if err == nil {
 		// exists make sure that the keys match
 		if domainKeyHashed != key {
-			return handleMain(w, r, domain, "incorrect key")
+			return handleMain(w, r, domain, "This domain already exists and you did not enter the correct key.")
 		}
 	} else {
 		// key doesn't exists, create it
@@ -426,6 +445,9 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	} else if r.URL.Path == "/login" {
 		// special path /login
 		return handleLogin(w, r)
+	} else if r.URL.Path == "/logout" {
+		// special path /login
+		return handleLogout(w, r)
 	} else if domain != "" && page == "" {
 		if r.URL.Query().Get("q") != "" {
 			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
