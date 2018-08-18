@@ -428,6 +428,19 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, key string
 	return
 }
 
+// GetTopX returns the info from a file
+func (fs *FileSystem) GetTopX(domain string, num int) (files []File, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+	return fs.getAllFromPreparedQuery(`
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history FROM fs 
+	INNER JOIN fts ON fs.id=fts.id 
+	INNER JOIN domains ON fs.domainid=domains.id
+	WHERE 
+		domains.name = ?
+	ORDER BY modified DESC LIMIT ?`, domain, num)
+}
+
 // Get returns the info from a file
 func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 	fs.Lock()

@@ -27,21 +27,22 @@ var listTemplate *template.Template
 var fs *db.FileSystem
 
 type TemplateRender struct {
-	Title      string
-	Page       string
-	Rendered   template.HTML
-	File       db.File
-	IntroText  template.JS
-	Rows       int
-	RandomUUID string
-	Domain     string
-	DomainID   int
-	DomainKey  string
-	SignedIn   bool
-	Message    string
-	NumResults int
-	Files      []db.File
-	Search     string
+	Title        string
+	Page         string
+	Rendered     template.HTML
+	File         db.File
+	IntroText    template.JS
+	Rows         int
+	RandomUUID   string
+	Domain       string
+	DomainID     int
+	DomainKey    string
+	SignedIn     bool
+	Message      string
+	NumResults   int
+	Files        []db.File
+	Search       string
+	DomainExists bool
 }
 
 func init() {
@@ -210,19 +211,23 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) bool {
 	}
 	return false
 }
-func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
 
+func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
+	domainid, _, _ := fs.GetDomainFromName(domain)
+	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
-		Title:      "cowyo2",
-		Message:    message,
-		Domain:     domain,
-		RandomUUID: utils.UUID(),
-		SignedIn:   isSignedIn(w, r, domain),
+		Title:        "cowyo2",
+		Message:      message,
+		Domain:       domain,
+		RandomUUID:   utils.UUID(),
+		SignedIn:     isSignedIn(w, r, domain),
+		Files:        files,
+		DomainExists: domainid != 0,
 	})
 }
+
 func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := r.URL.Query().Get("d")
-	var message string
 	_, err = r.Cookie(domain)
 	if err == nil {
 		c := &http.Cookie{
@@ -233,11 +238,10 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 			HttpOnly: true,
 		}
 		http.SetCookie(w, c)
-		message = "You are logged out."
-	} else {
-		message = "You are not logged in."
+		http.Redirect(w, r, "/"+domain, 302)
+		return
 	}
-	return handleMain(w, r, domain, message)
+	return handleMain(w, r, domain, "You are not logged in.")
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
