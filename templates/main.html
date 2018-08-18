@@ -44,7 +44,7 @@
 		
 			{{if eq .Domain "public"}}
 				<h2>Create domain</h2>
-				<p>Creating a domain allows you to make new posts that only you can edit (but anyone can view).</p>
+				<p>Creating a domain allows you to make new posts that only you can edit (but anyone can view if they have the link).</p>
 			{{ else }}
 				{{if .DomainExists}}
 					{{ if .SignedIn}}
