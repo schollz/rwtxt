@@ -112,6 +112,17 @@ func (fs *FileSystem) initializeDB() (err error) {
 		err = errors.Wrap(err, "creating domains table")
 	}
 
+	sqlStmt = `CREATE TABLE 
+	blobs (
+		id TEXT NOT NULL PRIMARY KEY,
+		name TEXT,
+		data BLOB
+	);`
+	_, err = fs.db.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating domains table")
+	}
+
 	err = fs.setDomain("public", "")
 	if err != nil {
 		return
@@ -156,6 +167,60 @@ func (fs *FileSystem) NewFile(slug, data string) (f File) {
 		Modified: time.Now(),
 		Data:     data,
 	}
+	return
+}
+
+// SaveBlob will save a blob
+func (fs *FileSystem) SaveBlob(id string, name string, blob []byte) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	tx, err := fs.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin SaveBlob")
+	}
+	stmt, err := tx.Prepare(`
+	INSERT OR REPLACE INTO
+		blobs
+	(
+		id,
+		name,
+		data
+	) 
+		VALUES 	
+	(
+		?,
+		?,
+		?
+	)`)
+	if err != nil {
+		return errors.Wrap(err, "stmt SaveBlob")
+	}
+	_, err = stmt.Exec(
+		id, name, blob,
+	)
+	if err != nil {
+		return errors.Wrap(err, "exec SaveBlob")
+	}
+	defer stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit SaveBlob")
+	}
+	return
+}
+
+// GetBlob will save a blob
+func (fs *FileSystem) GetBlob(id string) (name string, data []byte, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	stmt, err := fs.db.Prepare("SELECT name,data FROM blobs WHERE id = ?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	err = stmt.QueryRow(id).Scan(&name, &data)
 	return
 }
 

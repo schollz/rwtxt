@@ -9,7 +9,9 @@
 
     {{.Rendered}}
 </div>
+<form id="dropzoneForm" action="/upload" class="dropzone">
 <textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>
+</form>
 </div>
 <div id="snackbar">Write markdown, reload page when you are done!</div>
 
@@ -22,4 +24,16 @@
     }
 </script>
 <script src="/static/js/cowyo2.js"></script>
+
+<script src="/static/js/dropzone.js"></script>
+<script>
+    Dropzone.options.dropzoneForm = {
+        clickable: false,
+        maxFilesize:   10  , 
+        init: function initDropzone() {
+            console.log("initializing dropzone");
+            this.on("complete", onUploadFinished);
+        }
+    };
+</script>
 {{template "footer" .}}

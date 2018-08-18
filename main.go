@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -369,12 +373,18 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 		b, _ := Asset("cowyo2.js")
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(b)
-		return
+	} else if strings.HasSuffix(page, "dropzone.css") {
+		b, _ := Asset("dropzone.css")
+		w.Header().Set("Content-Type", "text/css")
+		w.Write(b)
 	} else if strings.HasSuffix(page, "cowyo2.css") {
 		b, _ := Asset("cowyo2.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
-		return
+	} else if strings.HasSuffix(page, "dropzone.js") {
+		b, _ := Asset("dropzone.js")
+		w.Header().Set("Content-Type", "text/javascript")
+		w.Write(b)
 	}
 	return
 }
@@ -457,6 +467,58 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 
 }
 
+func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error) {
+	log.Debug("getting ", id)
+	name, data, err := fs.GetBlob(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition",
+		`attachment; filename="`+name+`"`,
+	)
+	w.Write(data)
+	return
+}
+
+func handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
+	file, info, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	h := sha256.New()
+	if _, err = io.Copy(h, file); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	id := fmt.Sprintf("sha256-%x", h.Sum(nil))
+
+	// copy file to buffer
+	file.Seek(0, io.SeekStart)
+	var fileData bytes.Buffer
+	_, err = io.Copy(&fileData, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// save file
+	err = fs.SaveBlob(id, info.Filename, fileData.Bytes())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Location", "/uploads/"+id+"?filename="+url.QueryEscape(info.Filename))
+	_, err = w.Write([]byte("ok"))
+	return
+}
+
 func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	fields := strings.Split(r.URL.Path, "/")
 	domain := "public"
@@ -482,6 +544,12 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	} else if r.URL.Path == "/logout" {
 		// special path /login
 		return handleLogout(w, r)
+	} else if r.URL.Path == "/upload" {
+		// special path /login
+		return handleUpload(w, r)
+	} else if strings.HasPrefix(r.URL.Path, "/uploads") {
+		// special path /login
+		return handleUploads(w, r, page)
 	} else if domain != "" && page == "" {
 		if r.URL.Query().Get("q") != "" {
 			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
