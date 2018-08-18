@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/schollz/cowyo2/src/utils"
 	"github.com/schollz/sqlite3dump"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type FileSystem struct {
@@ -102,18 +103,14 @@ func (fs *FileSystem) initializeDB() (err error) {
 	domains (
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
-		pass TEXT
+		pass BLOB
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating domains table")
 	}
 
-	sqlStmt = `INSERT INTO domains(name,pass) VALUES('public','');`
-	_, err = fs.db.Exec(sqlStmt)
-	if err != nil {
-		err = errors.Wrap(err, "creating domains table")
-	}
+	err = fs.setDomain("public", "")
 
 	return
 }
@@ -300,12 +297,75 @@ func (fs *FileSystem) Len() (l int, err error) {
 	return
 }
 
-// GetDomainID returns the domain id, throws an error if the domain does not exist
+// HashPassword generates a bcrypt hash of the password using work factor 14.
+func HashPassword(password []byte) ([]byte, error) {
+	return bcrypt.GenerateFromPassword(password, 14)
+}
+
+func (fs *FileSystem) SetDomain(domain, pass string) (err error) {
+	// first check if it is a domain
+	fs.Lock()
+	defer fs.Unlock()
+	return fs.setDomain(domain, pass)
+}
+
+func (fs *FileSystem) setDomain(domain, pass string) (err error) {
+	domain = strings.ToLower(domain)
+	_, err = fs.getDomainID(domain)
+	if err == nil {
+		return
+	}
+
+	hashedPasswordBytes, err := HashPassword([]byte(pass))
+	if err != nil {
+		return
+	}
+	tx, err := fs.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin Save")
+	}
+
+	stmt, err := tx.Prepare(`
+	INSERT OR IGNORE INTO
+		domains
+	(
+		name, 
+		pass
+	) 
+		values 	
+	(
+		?,
+		?
+	)`)
+	if err != nil {
+		return errors.Wrap(err, "stmt Save")
+	}
+
+	_, err = stmt.Exec(
+		domain,
+		hashedPasswordBytes,
+	)
+	if err != nil {
+		return errors.Wrap(err, "exec Save")
+	}
+	defer stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit Save")
+	}
+
+	return
+}
+
+// GetDomainID returns the domain id, throwing an error if it doesn't exist
 func (fs *FileSystem) GetDomainID(domain string) (domainid int, err error) {
 	fs.Lock()
 	defer fs.Unlock()
-
 	domain = strings.ToLower(domain)
+	return fs.getDomainID(domain)
+}
+
+func (fs *FileSystem) getDomainID(domain string) (domainid int, err error) {
 	// prepare statement
 	query := "SELECT id FROM domains WHERE name = ?"
 	stmt, err := fs.db.Prepare(query)
@@ -333,9 +393,6 @@ func (fs *FileSystem) GetDomainID(domain string) (domainid int, err error) {
 	err = rows.Err()
 	if err != nil {
 		err = errors.Wrap(err, "getRows")
-	}
-	if domainid == 0 {
-		err = errors.New("domain does not exist")
 	}
 	return
 }

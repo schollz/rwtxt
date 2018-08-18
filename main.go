@@ -33,6 +33,8 @@ type TemplateRender struct {
 	Rows       int
 	RandomUUID string
 	Domain     string
+	DomainID   int
+	DomainPass string
 	SignedIn   bool
 }
 
@@ -86,11 +88,13 @@ func main() {
 }
 
 type Payload struct {
-	ID      string `json:"id,omitempty"`
-	Data    string `json:"data,omitempty"`
-	Slug    string `json:"slug,omitempty"`
-	Message string `json:"message,omitempty"`
-	Success bool   `json:"success"`
+	ID         string `json:"id,omitempty"`
+	DomainID   int    `json:"domainid,omitempty"`
+	DomainPass string `json:"domainpass,omitempty"`
+	Data       string `json:"data,omitempty"`
+	Slug       string `json:"slug,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Success    bool   `json:"success"`
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -310,15 +314,21 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		http.Redirect(w, r, "/"+domain+"/"+page+"?edit=1", 302)
 	}
 	initialMarkdown += "\n\n" + f.Data
-	viewEditTemplate.Execute(w, TemplateRender{
+	domainid, err := fs.GetDomainID(domain)
+	if err != nil {
+		return
+	}
+	return viewEditTemplate.Execute(w, TemplateRender{
 		Page:      page,
 		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
 		File:      f,
 		IntroText: template.JS(introText),
 		Title:     f.Slug,
 		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
+		Domain:    domain,
+		DomainID:  domainid,
 	})
-	return
+
 }
 
 func handle(w http.ResponseWriter, r *http.Request) (err error) {
