@@ -23,6 +23,7 @@ const (
 var viewEditTemplate *template.Template
 var mainTemplate *template.Template
 var loginTemplate *template.Template
+var listTemplate *template.Template
 var fs *db.FileSystem
 
 type TemplateRender struct {
@@ -38,6 +39,9 @@ type TemplateRender struct {
 	DomainKey  string
 	SignedIn   bool
 	Message    string
+	NumResults int
+	Files      []db.File
+	Search     string
 }
 
 func init() {
@@ -74,6 +78,21 @@ func init() {
 	}
 	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
 
+	b, err = ioutil.ReadFile("templates/list.html")
+	if err != nil {
+		panic(err)
+	}
+	listTemplate = template.Must(template.New("main").Parse(string(b)))
+	b, err = ioutil.ReadFile("templates/header.html")
+	if err != nil {
+		panic(err)
+	}
+	listTemplate = template.Must(listTemplate.Parse(string(b)))
+	b, err = ioutil.ReadFile("templates/footer.html")
+	if err != nil {
+		panic(err)
+	}
+	listTemplate = template.Must(listTemplate.Parse(string(b)))
 }
 
 func main() {
@@ -150,8 +169,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 	if errGet != nil {
 		return errGet
 	}
-	initialMarkdown := fmt.Sprintf("<a href='/%s/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", domain, utils.UUID(), len(files), query)
-	for _, fi := range files {
+	for i, fi := range files {
 		snippet := fi.Data
 		if len(snippet) > 50 {
 			snippet = snippet[:50]
@@ -159,17 +177,24 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 		reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
 		snippet = strings.Replace(snippet, "\n", " ", -1)
 		snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-		initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, domain, fi.ID, snippet)
+		files[i].Data = snippet
 	}
-	return viewEditTemplate.Execute(w, TemplateRender{
-		Title:    query + " pages",
-		Page:     query,
-		Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
+	return handleList(w, r, domain, query, files)
+}
+
+func handleList(w http.ResponseWriter, r *http.Request, domain string, query string, files []db.File) (err error) {
+	return listTemplate.Execute(w, TemplateRender{
+		Title:      query + " pages",
+		Domain:     domain,
+		Files:      files,
+		NumResults: len(files),
+		Search:     query,
+		RandomUUID: utils.UUID(),
+		SignedIn:   isSignedIn(w, r, domain),
 	})
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
-	signedIn := false
+func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) bool {
 	if domain != "" && domain != "public" {
 		cookie, err := r.Cookie(domain)
 		if err == nil {
@@ -177,19 +202,22 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 			_, key, err := fs.GetDomainFromName(domain)
 			log.Debug(domain, key, err)
 			if err == nil && cookie.Value != "" && cookie.Value == key && key != "" {
-				signedIn = true
+				return true
 			}
 		}
 	} else {
-		signedIn = true
+		return true
 	}
+	return false
+}
+func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
 
 	return mainTemplate.Execute(w, TemplateRender{
 		Title:      "cowyo2",
 		Message:    message,
 		Domain:     domain,
 		RandomUUID: utils.UUID(),
-		SignedIn:   signedIn,
+		SignedIn:   isSignedIn(w, r, domain),
 	})
 }
 func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
@@ -360,8 +388,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			return handleMain(w, r, domain, err.Error())
 		}
 		if len(files) > 1 {
-			initialMarkdown = fmt.Sprintf("<a href='/%s/%s' class='fr'>New</a>\n\n# Found %d '%s'\n\n", domain, utils.UUID(), len(files), page)
-			for _, fi := range files {
+			for i, fi := range files {
 				snippet := fi.Data
 				if len(snippet) > 50 {
 					snippet = snippet[:50]
@@ -369,14 +396,9 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 				reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
 				snippet = strings.Replace(snippet, "\n", " ", -1)
 				snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-				initialMarkdown += fmt.Sprintf("\n\n(%s) [%s](/%s) *%s*.", fi.Modified.Format("Mon Jan 2 3:04pm 2006"), fi.ID, fi.ID, snippet)
+				files[i].Data = snippet
 			}
-			viewEditTemplate.Execute(w, TemplateRender{
-				Title:    page + " pages",
-				Page:     page,
-				Rendered: utils.RenderMarkdownToHTML(initialMarkdown),
-			})
-			return
+			return handleList(w, r, domain, page, files)
 		} else {
 			f = files[0]
 		}
