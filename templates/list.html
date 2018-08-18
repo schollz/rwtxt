@@ -1,0 +1,17 @@
+{{template "header" .}}
+<div class="main" class="fonty">
+    <span class="fr">
+        <a href="/{{.Domain}}">Back</a>
+        <br>{{ if .SignedIn}}
+        <a href='/{{.Domain}}/{{.RandomUUID}}?edit=1' class='fr'>New page</a>{{end}}</span>
+    <h1>{{.NumResults}} results for '{{.Search}}'</h1>
+    <p>Currently in the <strong>{{.Domain}}</strong> domain.</p>
+    {{range .Files}}
+    <p>
+        ({{.Modified.Format "Mon Jan 2 3:04pm 2006"}})
+        <a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
+        <em>{{.Data}}</em>
+    </p>
+    {{end}}
+</div>
+{{template "footer" .}}
