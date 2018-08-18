@@ -3,14 +3,17 @@
 	{{ if .SignedIn}}
 	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>New page</a>
 	{{end}}
-	<h1>Main</h1>
+	{{with .Message}}
+	<p>{{.}}</p>
+	{{end}}
+
+
 	<p>Welcome to the
-		<strong>{{.Domain}}</strong> domain. {{if eq .Domain "public"}}Anyone can view and edit these pages.{{else}}{{ if .SignedIn}}Anyone
+		<strong>{{.Domain}}</strong> domain. 
+	{{if .DomainExists}}
+	{{if eq .Domain "public"}}Anyone can view and edit these pages.{{else}}{{ if .SignedIn}}Anyone
 		can view these pages. You are signed in and can edit (sign out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not signed in and cannot edit pages.{{end}}{{end}}</p>
-	{{if .DomainExists}}{{else}}<p>This domain does not yet exist. You can create it below.</p>{{end}}
-	{{with .Message}}
-	<p>{{.}}</p>{{end}}
 	<p>
 		<h2>Recent pages</h2>
 		<ul>
@@ -23,20 +26,21 @@
 		</ul>
 	</p>
 	<p>
-		<h2>Search</h2>
-		<form action="/{{.Domain}}" method="get">
-			<input type="text" name="q" value="">
-			<input type="submit" value="Search">
-		</form>
-	</p>
+	<h2>Search</h2>
+			<form action="/{{.Domain}}" method="get">
+				<input type="text" name="q" value="" size="35">
+				<input type="submit" value="Search">
+			</form>
+		</p>
+	{{else}}
+	This domain does not yet exist. You can create it below.</p>{{end}}
+
+
 	<p>
-		<h2>{{if .DomainExists}}Log in{{else}}Create domain{{end}}</h2>
+		<h2>{{ if .SignedIn}}Create domain{{else}}{{if .DomainExists}}Log in{{else}}Create domain{{end}}{{end}}</h2>
 		<form action="/login" method="post">
-			Domain:
-			<input type="text" name="domain" value="">
-			<br> Key:
-			<input name="key" value="" type="password">
-			<br>
+			<input type="text" name="domain" value="" placeholder="Enter domain name..." size="20">
+			<input name="key" value="" type="password" placeholder="Enter a key..." size="20">
 			<input type="submit" value="Submit">
 		</form>
 	</p>
