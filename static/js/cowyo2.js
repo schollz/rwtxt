@@ -134,6 +134,7 @@ CY.loadEditor = function () {
     editor.focus();
     autoExpand(document.getElementById("editable"));
     console.log('loading editor');
+    showMessage();
 };
 
 document.getElementById("editable").addEventListener('input', CY.debounce(CY.contentEdited, 300));
@@ -180,4 +181,10 @@ if (getParameterByName("edit") != null) {
     CY.loadEditor();
     document.getElementById("editable").focus();
     history.pushState({}, window.location.pathname, window.location.pathname);
+}
+
+function showMessage() {
+    var x = document.getElementById("snackbar");
+    x.className = "show";
+    setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
 }
