@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
@@ -476,6 +477,9 @@ func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error
 		return
 	}
 
+	w.Header().Set("Vary", "Accept-Encoding")
+	w.Header().Set("Cache-Control", "public, max-age=7776000")
+	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Disposition",
 		`attachment; filename="`+name+`"`,
@@ -508,11 +512,13 @@ func handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
 	// copy file to buffer
 	file.Seek(0, io.SeekStart)
 	var fileData bytes.Buffer
-	_, err = io.Copy(&fileData, file)
+	gzipWriter := gzip.NewWriter(&fileData)
+	_, err = io.Copy(gzipWriter, file)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	gzipWriter.Close()
 
 	// save file
 	err = fs.SaveBlob(id, info.Filename, fileData.Bytes())
