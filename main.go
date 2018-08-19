@@ -337,7 +337,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			log.Debug("read:", err)
 			break
 		}
-		log.Debugf("recv: %v", p)
+		// log.Debugf("recv: %v", p)
 
 		if !domainChecked {
 			domainChecked = true
