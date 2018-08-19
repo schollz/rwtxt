@@ -175,7 +175,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error(err)
 	}
-	log.Infof("%v %v %v %s", r.RemoteAddr, r.Method, r.URL, time.Since(t))
+	log.Infof("%v %v %v %s", r.RemoteAddr, r.Method, r.URL.Path, time.Since(t))
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
@@ -591,6 +591,16 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 			return
 		}
 		http.Redirect(w, r, "/public", 302)
+	} else if r.URL.Path == "/robots.txt" {
+		// special path
+		w.Write([]byte(`User-agent: * 
+Disallow: /`))
+	} else if r.URL.Path == "/favicon.ico" {
+		// favicon
+
+	} else if r.URL.Path == "/sitemap.xml" {
+		// favicon
+
 	} else if r.URL.Path == "/ws" {
 		// special path /ws
 		return handleWebsocket(w, r)
