@@ -12,14 +12,14 @@
 	as a blog, a pastebin, a notepad.
 	</p>
 
-	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}/</code>.
+	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
 	
 	{{if .DomainExists}}
-	{{if eq .Domain "public"}}Anyone can view and edit these pages. To keep content to yourself, create a domain (below).{{else}}{{ if .SignedIn}}Anyone
-		can view these pages. Only you can edit pages, since you are are logged in (log out
+	{{if eq .Domain "public"}}Anyone can view and edit these pages. You can create a domain to prevent others from editing your content.{{else}}{{ if .SignedIn}}Remember, everything you create is public but secret, so share at your own discretion. Only you can edit pages, since you are are logged in (log out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
 
-		{{ if .SignedIn}}
+	{{ if .SignedIn}}
+	{{ if eq .Domain "public"}}{{else}}
 		<p>
 		<h2>Recent pages</h2>
 		<ul>
@@ -39,6 +39,7 @@
 			</form>
 		</p>
 	{{end}}
+	{{end}}
 	{{else}}
 	This domain does not yet exist. You can create it below.</p>{{end}}
 
@@ -46,7 +47,7 @@
 	<p>
 			{{if eq .Domain "public"}}
 				<h2>Create domain</h2>
-				<p>Creating a domain allows you to make new posts that only you can edit (but anyone can view if they have the link).</p>
+				<p>Creating a domain allows you to make new posts that only you can edit. Remember, everything you create is public but secret, so share at your own discretion.</p>
 			{{ else }}
 				{{if .DomainExists}}
 					{{ if .SignedIn}}
@@ -69,33 +70,22 @@
 
 
 	{{ if .ShowCookieMessage}}
+	
 	<h2>Cookies</h2>
+	<small>
 	<p>This site uses cookies. By using this site you agree to the use of cookies.</p>
 
-	<p><strong>What Are Cookies</strong></p>
-	
 	<p>As is common practice with almost all professional websites this site uses cookies, which are tiny files that are downloaded to your computer, to improve your experience. This page describes what information they gather, how we use it and why we sometimes need to store these cookies. We will also share how you can prevent these cookies from being stored however this may downgrade or 'break' certain elements of the sites functionality.</p>
 	
-	<p>For more general information on cookies see the Wikipedia article on HTTP Cookies.</p>
-	
-	<p><strong>How We Use Cookies</strong></p>
+	<p>For more general information on cookies see the <a href="https://en.wikipedia.org/wiki/HTTP_cookie">Wikipedia article on HTTP Cookies</a>.</p>
 	
 	<p>We use cookies for a variety of reasons detailed below. Unfortunately in most cases there are no industry standard options for disabling cookies without completely disabling the functionality and features they add to this site. It is recommended that you leave on all cookies if you are not sure whether you need them or not in case they are used to provide a service that you use.</p>
-	
-	<p><strong>Disabling Cookies</strong></p>
+
 	
 	<p>You can prevent the setting of cookies by adjusting the settings on your browser (see your browser Help for how to do this). Be aware that disabling cookies will affect the functionality of this and many other websites that you visit. Disabling cookies will usually result in also disabling certain functionality and features of the this site. Therefore it is recommended that you do not disable cookies.</p>
 	
-	
-	<p><strong>The Cookies We Set</strong></p>
-	
-	<ul>
-	<li>
-		<p>Site preferences cookies</p>
 		<p>In order to provide you with a great experience on this site we provide the functionality to set your preferences for how this site runs when you use it. In order to remember your preferences we need to set cookies so that this information can be called whenever you interact with a page is affected by your preferences.</p>
-	</li>
-	
-	</ul>
+	</small>
 	
 	{{ end }}
 </div>
