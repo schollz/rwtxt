@@ -33,22 +33,23 @@ var fs *db.FileSystem
 var swearChecker swearjar.Swears
 
 type TemplateRender struct {
-	Title        string
-	Page         string
-	Rendered     template.HTML
-	File         db.File
-	IntroText    template.JS
-	Rows         int
-	RandomUUID   string
-	Domain       string
-	DomainID     int
-	DomainKey    string
-	SignedIn     bool
-	Message      string
-	NumResults   int
-	Files        []db.File
-	Search       string
-	DomainExists bool
+	Title             string
+	Page              string
+	Rendered          template.HTML
+	File              db.File
+	IntroText         template.JS
+	Rows              int
+	RandomUUID        string
+	Domain            string
+	DomainID          int
+	DomainKey         string
+	SignedIn          bool
+	Message           string
+	NumResults        int
+	Files             []db.File
+	Search            string
+	DomainExists      bool
+	ShowCookieMessage bool
 }
 
 func init() {
@@ -218,16 +219,29 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) bool {
 }
 
 func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
+	// check if first time user
+	cookie, err := r.Cookie("rwtxt-default-domain")
+	var showCookieMessage bool
+	if err == nil {
+		log.Debugf("got cookie %+v", cookie.Value)
+	} else {
+		expiration := time.Now().Add(365 * 24 * time.Hour)
+		cookie := http.Cookie{Name: "rwtxt-default-domain", Value: "public", Expires: expiration}
+		http.SetCookie(w, &cookie)
+		showCookieMessage = true
+	}
+
 	domainid, _, _ := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
-		Title:        "rwtxt",
-		Message:      message,
-		Domain:       domain,
-		RandomUUID:   utils.UUID(),
-		SignedIn:     isSignedIn(w, r, domain),
-		Files:        files,
-		DomainExists: domainid != 0,
+		Title:             "rwtxt",
+		Message:           message,
+		Domain:            domain,
+		RandomUUID:        utils.UUID(),
+		SignedIn:          isSignedIn(w, r, domain),
+		Files:             files,
+		DomainExists:      domainid != 0,
+		ShowCookieMessage: showCookieMessage,
 	})
 }
 
@@ -279,10 +293,16 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
+	// set domain password
 	expiration := time.Now().Add(365 * 24 * time.Hour)
 	cookie := http.Cookie{Name: domain, Value: domainKeyHashed, Expires: expiration}
 	http.SetCookie(w, &cookie)
+	// set domain default
+	cookie2 := http.Cookie{Name: "rwtxt-default-domain", Value: domain, Expires: expiration}
+	http.SetCookie(w, &cookie2)
+
 	http.Redirect(w, r, "/"+domain, 302)
+
 	return nil
 }
 
@@ -539,6 +559,7 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	fields := strings.Split(r.URL.Path, "/")
 	domain := "public"
 	page := ""
+
 	if len(fields) > 2 {
 		page = strings.TrimSpace(strings.ToLower(fields[2]))
 	}
@@ -570,7 +591,17 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 		if r.URL.Query().Get("q") != "" {
 			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
 		}
-		return handleMain(w, r, domain, "")
+		// check to see if domain exists
+		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
+		domainid, _, _ := fs.GetDomainFromName(domain)
+		if domainid > 0 || cookieErr != nil {
+			// domain exists, handle normally
+			return handleMain(w, r, domain, "")
+		}
+		// we are trying to goto a page that doesn't exist as a domain
+		// automatically create a new page for editing in the default domain
+		http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
+		return
 	} else if domain != "" && page != "" {
 		log.Debug("handle view edit")
 		return handleViewEdit(w, r, domain, page)
