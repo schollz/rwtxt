@@ -247,6 +247,21 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 
 func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := r.URL.Query().Get("d")
+
+	// delete default domain cookie
+	_, err = r.Cookie("rwtxt-default-domain")
+	if err == nil {
+		c := &http.Cookie{
+			Name:     "rwtxt-default-domain",
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			HttpOnly: true,
+		}
+		http.SetCookie(w, c)
+	}
+
+	// delete domain password cookie
 	_, err = r.Cookie(domain)
 	if err == nil {
 		c := &http.Cookie{
@@ -257,7 +272,7 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 			HttpOnly: true,
 		}
 		http.SetCookie(w, c)
-		http.Redirect(w, r, "/"+domain, 302)
+		http.Redirect(w, r, "/", 302)
 		return
 	}
 	return handleMain(w, r, domain, "You are not logged in.")
@@ -568,6 +583,14 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 	if r.URL.Path == "/" {
 		// special path /
+
+		// check to see if there is a default domain
+		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
+		if cookieErr == nil {
+			// domain exists, handle normally
+			http.Redirect(w, r, "/"+cookie.Value, 302)
+			return
+		}
 		http.Redirect(w, r, "/public", 302)
 	} else if r.URL.Path == "/ws" {
 		// special path /ws
