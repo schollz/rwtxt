@@ -361,7 +361,6 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 				p.Domain = "public"
 			}
 			data := strings.TrimSpace(p.Data)
-			log.Debug(data, introText)
 			if data == introText {
 				data = ""
 			}

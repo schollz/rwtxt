@@ -1,11 +1,11 @@
 // websockets 
 var socket;
 const socketMessageListener = (event) => {
-    console.log(event);
+    // console.log(event);
     CY.serverResponse(event.data);
 };
 const socketOpenListener = (event) => {
-    console.log('Connected');
+    // console.log('Connected');
 };
 const socketCloseListener = (event) => {
     if (socket) {
@@ -16,7 +16,7 @@ const socketCloseListener = (event) => {
     socket.addEventListener('open', socketOpenListener);
     socket.addEventListener('message', socketMessageListener);
     socket.addEventListener('close', socketCloseListener);
-    console.log('opening socket to ' + url)
+    // console.log('opening socket to ' + url)
 };
 
 // get URL query parameters 
@@ -81,7 +81,7 @@ CY.debounce = function (func, wait, immediate) {
 };
 
 CY.contentEdited = function () {
-    console.log('edited');
+    // console.log('edited');
     var markdown = document.getElementById("editable").value.replaceAll("<br>", "\n");
     var slug = slugify(markdown);
     socket.send(JSON.stringify({
@@ -102,7 +102,7 @@ CY.serverResponse = function (jsonString) {
         } else {
             newwindowname = data.id;
         }
-        console.log(newwindowname);
+        // console.log(newwindowname);
         if (newwindowname != undefined && newwindowname.length > 0 && "/" + newwindowname != window.location
             .pathname) {
             history.pushState({}, newwindowname, newwindowname);
@@ -134,7 +134,7 @@ CY.loadEditor = function () {
     editor.style.display = 'inline-block'; // needed to add brs at end
     editor.focus();
     autoExpand(document.getElementById("editable"));
-    console.log('loading editor');
+    // console.log('loading editor');
     showMessage();
 };
 
@@ -147,9 +147,9 @@ if (editlink != null) {
 
 
 document.getElementById("editable").addEventListener('focusin', function (e) {
-    console.log('focusin!')
+    // console.log('focusin!')
     editor = document.getElementById("editable");
-    console.log('[' + editor.value.trim() + ']');
+    // console.log('[' + editor.value.trim() + ']');
     if (editor.value.trim() == window.rwtxt.intro_text) {
         editor.value = " ";
     }
@@ -192,8 +192,8 @@ function showMessage() {
 
 
 function onUploadFinished(file) {
-    console.log("upload finished");
-    console.log(file);
+    // // console.log("upload finished");
+    // // console.log(file);
     this.removeFile(file);
     var cursorPos = document.getElementById("editable").selectionStart;
     var cursorEnd = document.getElementById("editable").selectionEnd;
