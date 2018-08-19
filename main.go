@@ -16,8 +16,8 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
-	"github.com/schollz/rwio/src/db"
-	"github.com/schollz/rwio/src/utils"
+	"github.com/schollz/rwtxt/src/db"
+	"github.com/schollz/rwtxt/src/utils"
 	swearjar "github.com/schollz/swearjar-go"
 )
 
@@ -140,7 +140,7 @@ var wsupgrader = websocket.Upgrader{
 }
 
 func serve() (err error) {
-	fs, err = db.New("rwio.db")
+	fs, err = db.New("rwtxt.db")
 	if err != nil {
 		log.Error(err)
 		return
@@ -221,7 +221,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 	domainid, _, _ := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
-		Title:        "rwio",
+		Title:        "rwtxt",
 		Message:      message,
 		Domain:       domain,
 		RandomUUID:   utils.UUID(),
@@ -259,7 +259,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 		return handleMain(w, r, "public", "domain key cannot be empty")
 	}
 	sha_512 := sha512.New()
-	sha_512.Write([]byte("rwio"))
+	sha_512.Write([]byte("rwtxt"))
 	sha_512.Write([]byte(domainKey))
 	domainKeyHashed := fmt.Sprintf("%x", sha_512.Sum(nil))
 
@@ -373,16 +373,16 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	w.Header().Set("Cache-Control", "public, max-age=7776000")
 	w.Header().Set("Content-Encoding", "gzip")
 	log.Debug(page)
-	if strings.HasSuffix(page, "rwio.js") {
-		b, _ := Asset("rwio.js")
+	if strings.HasSuffix(page, "rwtxt.js") {
+		b, _ := Asset("rwtxt.js")
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(b)
 	} else if strings.HasSuffix(page, "dropzone.css") {
 		b, _ := Asset("dropzone.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
-	} else if strings.HasSuffix(page, "rwio.css") {
-		b, _ := Asset("rwio.css")
+	} else if strings.HasSuffix(page, "rwtxt.css") {
+		b, _ := Asset("rwtxt.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
 	} else if strings.HasSuffix(page, "dropzone.js") {

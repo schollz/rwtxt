@@ -85,11 +85,11 @@ CY.contentEdited = function () {
     var markdown = document.getElementById("editable").value.replaceAll("<br>", "\n");
     var slug = slugify(markdown);
     socket.send(JSON.stringify({
-        "id": window.rwio.file_id,
+        "id": window.rwtxt.file_id,
         "slug": slugify(markdown),
         "data": markdown,
-        "domain": window.rwio.domain,
-        "domain_key": window.rwio.domain_key
+        "domain": window.rwtxt.domain,
+        "domain_key": window.rwtxt.domain_key
     }));
 };
 
@@ -150,7 +150,7 @@ document.getElementById("editable").addEventListener('focusin', function (e) {
     console.log('focusin!')
     editor = document.getElementById("editable");
     console.log('[' + editor.value.trim() + ']');
-    if (editor.value.trim() == window.rwio.intro_text) {
+    if (editor.value.trim() == window.rwtxt.intro_text) {
         editor.value = " ";
     }
 })

@@ -15,7 +15,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"github.com/schollz/rwio/src/utils"
+	"github.com/schollz/rwtxt/src/utils"
 	"github.com/schollz/sqlite3dump"
 	"github.com/schollz/versionedtext"
 )
