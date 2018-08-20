@@ -47,16 +47,22 @@ func New(name string) (fs *FileSystem, err error) {
 	}
 	fs.name = name
 
-	// if read-only, make sure the database exists
-	fs.db, err = sql.Open("sqlite3", ":memory:")
+	var needToInitialize bool
+	if _, err = os.Stat(fs.name); os.IsNotExist(err) {
+		needToInitialize = true
+	}
+	fs.db, err = sql.Open("sqlite3", fs.name)
 	if err != nil {
 		return
 	}
-	err = fs.initializeDB()
-	if err != nil {
-		err = errors.Wrap(err, "could not initialize")
-		return
+	if needToInitialize {
+		err = fs.initializeDB()
+		if err != nil {
+			err = errors.Wrap(err, "could not initialize")
+			return
+		}
 	}
+
 	return
 }
 

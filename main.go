@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"crypto/sha512"
+	"flag"
 	"fmt"
 	"html/template"
 	"io"
@@ -110,12 +111,20 @@ func init() {
 }
 
 func main() {
-	defer log.Flush()
+	var err error
+	var debug = flag.Bool("debug", false, "debug mode")
+	flag.Parse()
 
-	err := setLogLevel("debug")
+	if *debug {
+		err = setLogLevel("debug")
+	} else {
+		err = setLogLevel("info")
+	}
 	if err != nil {
 		panic(err)
 	}
+	defer log.Flush()
+
 	err = serve()
 	if err != nil {
 		log.Error(err)
