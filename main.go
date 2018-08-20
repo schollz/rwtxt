@@ -19,7 +19,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/schollz/rwtxt/src/db"
 	"github.com/schollz/rwtxt/src/utils"
-	swearjar "github.com/schollz/swearjar-go"
 )
 
 const (
@@ -31,7 +30,6 @@ var mainTemplate *template.Template
 var loginTemplate *template.Template
 var listTemplate *template.Template
 var fs *db.FileSystem
-var swearChecker swearjar.Swears
 
 type TemplateRender struct {
 	Title             string
@@ -55,11 +53,6 @@ type TemplateRender struct {
 
 func init() {
 	var err error
-
-	swearChecker, err = swearjar.Load()
-	if err != nil {
-		panic(err)
-	}
 
 	b, err := Asset("viewedit.html")
 	if err != nil {
@@ -360,11 +353,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			}
 		}
 
-		// check profanity
-		profane, _, _ := swearChecker.Scorecard(p.Data)
-
 		// save it
-		if p.ID != "" && domainValidated && !profane {
+		if p.ID != "" && domainValidated {
 			log.Debug("saving")
 			if p.Domain == "" {
 				p.Domain = "public"
