@@ -121,6 +121,18 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 
 	sqlStmt = `CREATE TABLE 
+	domainkeys (
+		id INTEGER NOT NULL PRIMARY KEY,
+		domainid INTEGER,
+		key TEXT,
+		lastused TIMESTAMP
+	);`
+	_, err = fs.db.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating domainkeys table")
+	}
+
+	sqlStmt = `CREATE TABLE 
 	blobs (
 		id TEXT NOT NULL PRIMARY KEY,
 		name TEXT,
