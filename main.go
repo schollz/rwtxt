@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
-	"crypto/sha512"
 	"flag"
 	"fmt"
 	"html/template"
@@ -233,7 +232,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		showCookieMessage = true
 	}
 
-	domainid, _, _ := fs.GetDomainFromName(domain)
+	domainid, _ := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
 		Title:             "rwtxt",
@@ -282,44 +281,39 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 
 func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
-	domainKey := strings.TrimSpace(r.FormValue("key"))
+	password := strings.TrimSpace(r.FormValue("password"))
 	if domain == "public" || domain == "" {
 		return handleMain(w, r, "public", "")
 	}
-	if domainKey == "" {
+	if password == "" {
 		return handleMain(w, r, "public", "domain key cannot be empty")
 	}
-	sha_512 := sha512.New()
-	sha_512.Write([]byte("rwtxt"))
-	sha_512.Write([]byte(domainKey))
-	domainKeyHashed := fmt.Sprintf("%x", sha_512.Sum(nil))
+	var key string
 
 	// check if exists
-	_, key, err := fs.GetDomainFromName(domain)
-	if err == nil {
-		// exists make sure that the keys match
-		if domainKeyHashed != key {
-			return handleMain(w, r, domain, "You did not enter the correct key to edit on this domain.")
-		}
-	} else {
-		// key doesn't exists, create it
+	_, err = fs.GetDomainFromName(domain)
+	if err != nil {
+		// domain doesn't exist, create it
 		log.Debugf("domain '%s' doesn't exist, creating it with %s", domain, domainKeyHashed)
-		err = fs.SetDomain(domain, domainKeyHashed)
+		err = fs.SetDomain(domain, password)
 		if err != nil {
 			log.Error(err)
+			return handleMain(w, r, "public", err.Error())
 		}
+	}
+	key, err = fs.SetKey(domain, password)
+	if err != nil {
+		return handleMain(w, r, "public", err.Error())
 	}
 
 	// set domain password
 	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookie := http.Cookie{Name: domain, Value: domainKeyHashed, Expires: expiration}
+	cookie := http.Cookie{Name: domain, Value: key, Expires: expiration}
 	http.SetCookie(w, &cookie)
 	// set domain default
 	cookie2 := http.Cookie{Name: "rwtxt-default-domain", Value: domain, Expires: expiration}
 	http.SetCookie(w, &cookie2)
-
 	http.Redirect(w, r, "/"+domain, 302)
-
 	return nil
 }
 

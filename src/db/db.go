@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -425,8 +424,77 @@ func (fs *FileSystem) Len() (l int, err error) {
 	return
 }
 
+// SetKey will set the key of a domain, throws an error if it already exists
+func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
+	// first check if it is a domain
+	fs.Lock()
+	defer fs.Unlock()
+	domainid, err := fs.validateDomain(domain, password)
+	if err != nil {
+		return
+	}
+	if domainid == 0 {
+		err = errors.New("domain does not exist")
+		return
+	}
+	tx, err := fs.db.Begin()
+	if err != nil {
+		return
+	}
+	stmt, err := tx.Prepare("insert into keys(domainid,key,last_used) values(?, ?,?)")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	key = string(utils.Hash(time.Now().String(), []byte(utils.UUID())))
+	_, err = stmt.Exec(domainid, key, time.Now())
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+	return
+}
+
+// GetKey will set the key of a domain, throws an error if it already exists
+func (fs *FileSystem) GetKey(key string) (domainid int, domain string, lastUsed time.Time, err error) {
+	// first check if it is a domain
+	fs.Lock()
+	defer fs.Unlock()
+
+	stmt, err := fs.db.Prepare("SELECT keys.domainid,domains.name,keys.last_used FROM keys INNER JOIN domains ON keys.domainid=domains.id WHERE keys.key=?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	err = stmt.QueryRow(key).Scan(&domainid, &domain, &lastUsed)
+	if err != nil {
+		return
+	}
+	if domainid == 0 {
+		err = errors.New("no such key")
+		return
+	}
+
+	// update the last used
+	tx, err := fs.db.Begin()
+	if err != nil {
+		return
+	}
+	stmt, err = tx.Prepare("UPDATE keys SET last_used=? WHERE key=?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(time.Now(), key)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+	return
+}
+
 // SetDomain will set the key of a domain, throws an error if it already exists
-func (fs *FileSystem) SetDomain(domain, key string) (err error) {
+func (fs *FileSystem) SetDomain(domain, password string) (err error) {
 	// first check if it is a domain
 	fs.Lock()
 	defer fs.Unlock()
@@ -435,37 +503,26 @@ func (fs *FileSystem) SetDomain(domain, key string) (err error) {
 		err = errors.New("domain already exists")
 		return
 	}
-	return fs.setDomain(domain, key)
+	return fs.setDomain(domain, password)
 }
 
-func (fs *FileSystem) setDomain(domain, key string) (err error) {
+func (fs *FileSystem) setDomain(domain, password string) (err error) {
 	domain = strings.ToLower(domain)
-
 	tx, err := fs.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
 	}
 
-	stmt, err := tx.Prepare(`
-	INSERT INTO
-		domains
-	(
-		name, 
-		key
-	) 
-		VALUES 	
-	(
-		?,
-		?
-	)`)
+	stmt, err := tx.Prepare(`INSERT INTO domains (name, hashed_pass) VALUES (?,?)`)
 	if err != nil {
 		return errors.Wrap(err, "stmt Save")
 	}
 
-	_, err = stmt.Exec(
-		domain,
-		key,
-	)
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		return errors.Wrap(err, "can't hash password")
+	}
+	_, err = stmt.Exec(domain, hashedPassword)
 	if err != nil {
 		return errors.Wrap(err, "exec Save")
 	}
@@ -474,27 +531,49 @@ func (fs *FileSystem) setDomain(domain, key string) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "commit Save")
 	}
-
-	log.Println("trying to insert", domain, key)
-
 	return
 }
 
-// GetDomainID returns the domain id, throwing an error if it doesn't exist
-func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, key string, err error) {
+// ValidateDomain returns the domain id or an error if the password doesn't match or if the domain doesn't exist
+func (fs *FileSystem) ValidateDomain(domain, password string) (domainid int, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+	return fs.validateDomain(domain, password)
+}
+
+// ValidateDomain returns the domain id or an error if the password doesn't match or if the domain doesn't exist
+func (fs *FileSystem) validateDomain(domain, password string) (domainid int, err error) {
+	domain = strings.ToLower(domain)
+	domainid, hashedPassword, err := fs.getDomainFromName(domain)
+	if domainid == 0 {
+		err = errors.New("domain " + domain + " does not exist")
+		return
+	}
+	if err != nil {
+		return
+	}
+	err = utils.CheckPasswordHash(hashedPassword, password)
+	if err != nil {
+		err = errors.New("incorrect password to log into domain")
+	}
+	return
+}
+
+// GetDomainFromName returns the domain id, throwing an error if it doesn't exist
+func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	domain = strings.ToLower(domain)
-	domainid, key, err = fs.getDomainFromName(domain)
+	domainid, _, err = fs.getDomainFromName(domain)
 	if domainid == 0 {
 		err = errors.New("domain " + domain + " does not exist")
 	}
 	return
 }
 
-func (fs *FileSystem) getDomainFromName(domain string) (domainid int, key string, err error) {
+func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPassword string, err error) {
 	// prepare statement
-	query := "SELECT id,key FROM domains WHERE name = ?"
+	query := "SELECT id,hashed_pass FROM domains WHERE name = ?"
 	stmt, err := fs.db.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
@@ -511,7 +590,7 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, key string
 	// loop through rows
 	defer rows.Close()
 	for rows.Next() {
-		err = rows.Scan(&domainid, &key)
+		err = rows.Scan(&domainid, &hashedPassword)
 		if err != nil {
 			err = errors.Wrap(err, "getRows")
 			return

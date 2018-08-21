@@ -1,11 +1,15 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
+	"encoding/hex"
 	"html/template"
 	"math/rand"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
+	"golang.org/x/crypto/bcrypt"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
 
@@ -46,4 +50,31 @@ func UUID() string {
 	}
 
 	return string(b)
+}
+
+// Hash generates a hash of data using HMAC-SHA-512/256. The tag is intended to
+// be a natural-language string describing the purpose of the hash, such as
+// "hash file for lookup key" or "master secret to client secret".  It serves
+// as an HMAC "key" and ensures that different purposes will have different
+// hash output. This function is NOT suitable for hashing passwords.
+func Hash(tag string, data []byte) []byte {
+	h := hmac.New(sha512.New512_256, []byte(tag))
+	h.Write(data)
+	return h.Sum(nil)
+}
+
+// HashPassword generates a bcrypt hash of the password using work factor 10.
+func HashPassword(password string) (string, error) {
+	passB, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	return hex.EncodeToString(passB), err
+}
+
+// CheckPasswordHash securely compares a bcrypt hashed password with its possible
+// plaintext equivalent.  Returns nil on success, or an error on failure.
+func CheckPasswordHash(hash, password string) error {
+	hashB, err := hex.DecodeString(hash)
+	if err != nil {
+		return err
+	}
+	return bcrypt.CompareHashAndPassword(hashB, []byte(password))
 }
