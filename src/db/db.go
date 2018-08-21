@@ -113,7 +113,8 @@ func (fs *FileSystem) initializeDB() (err error) {
 	domains (
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
-		key TEXT
+		hashed_pass TEXT,
+		ispublic INTEGER
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
@@ -121,7 +122,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 
 	sqlStmt = `CREATE TABLE 
-	domainkeys (
+	keys (
 		id INTEGER NOT NULL PRIMARY KEY,
 		domainid INTEGER,
 		key TEXT,
@@ -129,7 +130,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
-		err = errors.Wrap(err, "creating domainkeys table")
+		err = errors.Wrap(err, "creating keys table")
 	}
 
 	sqlStmt = `CREATE TABLE 
