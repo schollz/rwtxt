@@ -263,8 +263,12 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// delete domain password cookie
-	_, err = r.Cookie(domain)
+	cookie, err := r.Cookie(domain)
 	if err == nil {
+		err = fs.DeleteKey(cookie.Value)
+		if err != nil {
+			log.Error(err)
+		}
 		c := &http.Cookie{
 			Name:     domain,
 			Value:    "",
@@ -602,13 +606,13 @@ Disallow: /`))
 		// special path /login
 		return handleLogin(w, r)
 	} else if r.URL.Path == "/logout" {
-		// special path /login
+		// special path /logout
 		return handleLogout(w, r)
 	} else if r.URL.Path == "/upload" {
-		// special path /login
+		// special path /upload
 		return handleUpload(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/uploads") {
-		// special path /login
+		// special path /uploads
 		return handleUploads(w, r, page)
 	} else if domain != "" && page == "" {
 		if r.URL.Query().Get("q") != "" {

@@ -457,6 +457,22 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 }
 
 // CheckKey checks that it is a valid key for a domain
+func (fs *FileSystem) DeleteKey(key string) (err error) {
+	// first check if it is a domain
+	fs.Lock()
+	defer fs.Unlock()
+
+	// first purge the database of old stuff
+	stmt, err := fs.db.Prepare(`DELETE FROM keys WHERE key=?;`)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(key)
+	return
+}
+
+// CheckKey checks that it is a valid key for a domain
 func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
 	// first check if it is a domain
 	fs.Lock()
