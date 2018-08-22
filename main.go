@@ -207,7 +207,7 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) bool {
 		cookie, err := r.Cookie(domain)
 		if err == nil {
 			log.Debugf("got cookie %+v", cookie.Value)
-			_, key, err := fs.GetDomainFromName(domain)
+			_, err := fs.GetDomainFromName(domain)
 			log.Debug(domain, key, err)
 			if err == nil && cookie.Value != "" && cookie.Value == key && key != "" {
 				return true
@@ -232,7 +232,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		showCookieMessage = true
 	}
 
-	domainid, _ := fs.GetDomainFromName(domain)
+	_, domainErr := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
 		Title:             "rwtxt",
@@ -241,7 +241,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		RandomUUID:        utils.UUID(),
 		SignedIn:          isSignedIn(w, r, domain),
 		Files:             files,
-		DomainExists:      domainid != 0,
+		DomainExists:      domainErr == nil,
 		ShowCookieMessage: showCookieMessage,
 	})
 }
@@ -340,8 +340,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			if p.Domain == "public" {
 				domainValidated = true
 			} else {
-				_, key, _ := fs.GetDomainFromName(p.Domain)
-				if key != "" && p.DomainKey == key {
+				_, _, _, keyErr := fs.GetKey(p.DomainKey)
+				if kerErr == nil {
 					domainValidated = true
 				}
 			}
