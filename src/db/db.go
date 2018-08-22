@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -441,12 +442,12 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 	if err != nil {
 		return
 	}
-	stmt, err := tx.Prepare("insert into keys(domainid,key,last_used) values(?, ?,?)")
+	stmt, err := tx.Prepare("insert into keys(domainid,key,lastused) values(?, ?,?)")
 	if err != nil {
 		return
 	}
 	defer stmt.Close()
-	key = string(utils.Hash(time.Now().String(), []byte(utils.UUID())))
+	key = utils.Hash(time.Now().String(), utils.UUID())
 	_, err = stmt.Exec(domainid, key, time.Now())
 	if err != nil {
 		return
@@ -455,22 +456,23 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 	return
 }
 
-// GetKey will set the key of a domain, throws an error if it already exists
-func (fs *FileSystem) GetKey(key string) (domainid int, domain string, lastUsed time.Time, err error) {
+// CheckKey checks that it is a valid key for a domain
+func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
 	// first check if it is a domain
 	fs.Lock()
 	defer fs.Unlock()
 
-	stmt, err := fs.db.Prepare("SELECT keys.domainid,domains.name,keys.last_used FROM keys INNER JOIN domains ON keys.domainid=domains.id WHERE keys.key=?")
+	log.Println("key", key)
+	stmt, err := fs.db.Prepare("SELECT domains.name FROM keys INNER JOIN domains ON keys.domainid=domains.id WHERE keys.key=?")
 	if err != nil {
 		return
 	}
 	defer stmt.Close()
-	err = stmt.QueryRow(key).Scan(&domainid, &domain, &lastUsed)
+	err = stmt.QueryRow(key).Scan(&domain)
 	if err != nil {
 		return
 	}
-	if domainid == 0 {
+	if domain == "" {
 		err = errors.New("no such key")
 		return
 	}
@@ -480,7 +482,7 @@ func (fs *FileSystem) GetKey(key string) (domainid int, domain string, lastUsed 
 	if err != nil {
 		return
 	}
-	stmt, err = tx.Prepare("UPDATE keys SET last_used=? WHERE key=?")
+	stmt, err = tx.Prepare("UPDATE keys SET lastused=? WHERE key=?")
 	if err != nil {
 		return
 	}

@@ -57,10 +57,10 @@ func UUID() string {
 // "hash file for lookup key" or "master secret to client secret".  It serves
 // as an HMAC "key" and ensures that different purposes will have different
 // hash output. This function is NOT suitable for hashing passwords.
-func Hash(tag string, data []byte) []byte {
+func Hash(tag string, data string) string {
 	h := hmac.New(sha512.New512_256, []byte(tag))
-	h.Write(data)
-	return h.Sum(nil)
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // HashPassword generates a bcrypt hash of the password using work factor 10.

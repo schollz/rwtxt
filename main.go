@@ -207,9 +207,9 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) bool {
 		cookie, err := r.Cookie(domain)
 		if err == nil {
 			log.Debugf("got cookie %+v", cookie.Value)
-			_, err := fs.GetDomainFromName(domain)
-			log.Debug(domain, key, err)
-			if err == nil && cookie.Value != "" && cookie.Value == key && key != "" {
+			var keyDomain string
+			keyDomain, err = fs.CheckKey(cookie.Value)
+			if err == nil && keyDomain == domain {
 				return true
 			}
 		}
@@ -294,7 +294,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	_, err = fs.GetDomainFromName(domain)
 	if err != nil {
 		// domain doesn't exist, create it
-		log.Debugf("domain '%s' doesn't exist, creating it with %s", domain, domainKeyHashed)
+		log.Debugf("domain '%s' doesn't exist, creating it", domain)
 		err = fs.SetDomain(domain, password)
 		if err != nil {
 			log.Error(err)
@@ -306,6 +306,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 		return handleMain(w, r, "public", err.Error())
 	}
 
+	log.Debugf("new key: %s", key)
 	// set domain password
 	expiration := time.Now().Add(365 * 24 * time.Hour)
 	cookie := http.Cookie{Name: domain, Value: key, Expires: expiration}
@@ -340,8 +341,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			if p.Domain == "public" {
 				domainValidated = true
 			} else {
-				_, _, _, keyErr := fs.GetKey(p.DomainKey)
-				if kerErr == nil {
+				_, keyErr := fs.CheckKey(p.DomainKey)
+				if keyErr == nil {
 					domainValidated = true
 				}
 			}
@@ -477,10 +478,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	domainkey := ""
 	if err == nil {
 		log.Debugf("got cookie %+v", cookie.Value)
-		_, key, errGet := fs.GetDomainFromName(domain)
-		if errGet == nil && cookie.Value != "" && cookie.Value == key && key != "" {
-			domainkey = cookie.Value
-		}
+		domainkey = cookie.Value
 	}
 	if f.Data == "" {
 		f.Data = introText
@@ -618,14 +616,16 @@ Disallow: /`))
 		}
 		// check to see if domain exists
 		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-		domainid, _, _ := fs.GetDomainFromName(domain)
-		if domainid > 0 || cookieErr != nil {
-			// domain exists, handle normally
-			return handleMain(w, r, domain, "")
+		_, domainErr := fs.GetDomainFromName(domain)
+		if domainErr != nil && cookieErr == nil {
+			// we are trying to goto a page that doesn't exist as a domain
+			// automatically create a new page for editing in the default domain
+			http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
+			return
 		}
-		// we are trying to goto a page that doesn't exist as a domain
-		// automatically create a new page for editing in the default domain
-		http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
+		// domain exists, handle normally
+		return handleMain(w, r, domain, "")
+
 		return
 	} else if domain != "" && page != "" {
 		log.Debug("handle view edit")
