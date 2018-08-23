@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -41,7 +40,7 @@ type TemplateRender struct {
 	Domain            string
 	DomainID          int
 	DomainKey         string
-	DomainIsPublic    bool
+	DomainIsPrivate   bool
 	SignedIn          bool
 	Message           string
 	NumResults        int
@@ -183,7 +182,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
-	if !isSignedIn(w, r, domain) {
+	signedin, _, _ := isSignedIn(w, r, domain)
+	if !signedin {
 		return handleMain(w, r, domain, "need to log in to search")
 	}
 	files, errGet := fs.Find(query, domain)
@@ -195,6 +195,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 
 func handleList(w http.ResponseWriter, r *http.Request, domain string, query string, files []db.File) (err error) {
 	// show the list page
+	signedin, _, _ := isSignedIn(w, r, domain)
 	return listTemplate.Execute(w, TemplateRender{
 		Title:      query + " pages",
 		Domain:     domain,
@@ -202,34 +203,41 @@ func handleList(w http.ResponseWriter, r *http.Request, domain string, query str
 		NumResults: len(files),
 		Search:     query,
 		RandomUUID: utils.UUID(),
-		SignedIn:   isSignedIn(w, r, domain),
+		SignedIn:   signedin,
 	})
 }
 
-func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) bool {
-	if domain != "" && domain != "public" {
-		cookie, err := r.Cookie(domain)
-		if err == nil {
-			log.Debugf("got cookie %+v", cookie.Value)
-			var keyDomain string
-			keyDomain, err = fs.CheckKey(cookie.Value)
-			if err == nil && keyDomain == domain {
-				return true
-			}
-		}
-	} else {
-		return true
+func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin bool, domainkey string, defaultDomain string) {
+	// check for default domain
+	defaultDomainCookie, cookieErr := r.Cookie("rwtxt-default-domain")
+	if cookieErr == nil {
+		// domain exists, handle normally
+		defaultDomain = defaultDomainCookie.Value
 	}
-	return false
+	if domain == "" {
+		domain = "public"
+	}
+	if domain == "public" {
+		return
+	}
+
+	// get domain key
+	cookie, cookieErr := r.Cookie(domain)
+	if cookieErr == nil {
+		log.Debugf("got cookie %+v", cookie.Value)
+		domainkey = cookie.Value
+		signedin = true
+	}
+	return
 }
 
 func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
 	// check if first time user
-	cookie, err := r.Cookie("rwtxt-default-domain")
+	signedin, domainKey, defaultDomain := isSignedIn(w, r, domain)
+
+	// set the default domain if it doesn't exist
 	var showCookieMessage bool
-	if err == nil {
-		log.Debugf("got cookie %+v", cookie.Value)
-	} else {
+	if defaultDomain == "" {
 		expiration := time.Now().Add(365 * 24 * time.Hour)
 		cookie := http.Cookie{Name: "rwtxt-default-domain", Value: "public", Expires: expiration}
 		http.SetCookie(w, &cookie)
@@ -243,11 +251,12 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		Message:           message,
 		Domain:            domain,
 		RandomUUID:        utils.UUID(),
-		SignedIn:          isSignedIn(w, r, domain),
+		SignedIn:          signedin,
 		Files:             files,
 		DomainExists:      domainErr == nil,
+		DomainIsPrivate:   !ispublic && domain != "public",
+		DomainKey:         domainKey,
 		ShowCookieMessage: showCookieMessage,
-		DomainIsPublic:    ispublic || domain == "public",
 	})
 }
 
@@ -323,6 +332,19 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	// set domain default
 	cookie2 := http.Cookie{Name: "rwtxt-default-domain", Value: domain, Expires: expiration}
 	http.SetCookie(w, &cookie2)
+	http.Redirect(w, r, "/"+domain, 302)
+	return nil
+}
+
+func handleLoginUpdate(w http.ResponseWriter, r *http.Request) (err error) {
+	domainKey := strings.TrimSpace(strings.ToLower(r.FormValue("domain_key")))
+	domain := strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
+	password := strings.TrimSpace(r.FormValue("password"))
+	isPublic := strings.TrimSpace(r.FormValue("ispublic")) == "on"
+	if domain == "public" || domain == "" {
+		return handleMain(w, r, "public", "cannot modify public")
+	}
+	log.Debugf("[%s] [%s] [%s] [%s]", domain, domainKey, password, isPublic)
 	http.Redirect(w, r, "/"+domain, 302)
 	return nil
 }
@@ -444,7 +466,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 
 	// if domainexists, and is not signed in and is not public,
 	// then restrict access
-	signedIn := isSignedIn(w, r, domain)
+	signedIn, domainKey, _ := isSignedIn(w, r, domain)
 	// check if domain is public and exists
 	_, ispublic, errGet := fs.GetDomainFromName(domain)
 	if errGet == nil && !signedIn && !ispublic {
@@ -459,16 +481,6 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			return handleMain(w, r, domain, err.Error())
 		}
 		if len(files) > 1 {
-			for i, fi := range files {
-				snippet := fi.Data
-				if len(snippet) > 50 {
-					snippet = snippet[:50]
-				}
-				reg, _ := regexp.Compile("[^a-z A-Z0-9]+")
-				snippet = strings.Replace(snippet, "\n", " ", -1)
-				snippet = strings.TrimSpace(reg.ReplaceAllString(snippet, ""))
-				files[i].Data = snippet
-			}
 			return handleList(w, r, domain, page, files)
 		} else {
 			f = files[0]
@@ -493,12 +505,6 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		return
 	}
 	initialMarkdown += "\n\n" + f.Data
-	cookie, err := r.Cookie(domain)
-	domainkey := ""
-	if err == nil {
-		log.Debugf("got cookie %+v", cookie.Value)
-		domainkey = cookie.Value
-	}
 	if f.Data == "" {
 		f.Data = introText
 	}
@@ -510,7 +516,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		Title:     f.Slug,
 		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
 		Domain:    domain,
-		DomainKey: domainkey,
+		DomainKey: domainKey,
 		SignedIn:  signedIn,
 	})
 
@@ -537,7 +543,8 @@ func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error
 
 func handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := r.URL.Query().Get("domain")
-	if !isSignedIn(w, r, domain) || domain == "public" {
+	signedIn, _, _ := isSignedIn(w, r, domain)
+	if !signedIn || domain == "public" {
 		http.Error(w, "need to be logged in", http.StatusForbidden)
 		return
 	}
@@ -620,6 +627,9 @@ Disallow: /`))
 	} else if r.URL.Path == "/login" {
 		// special path /login
 		return handleLogin(w, r)
+	} else if r.URL.Path == "/update" {
+		// special path /login
+		return handleLoginUpdate(w, r)
 	} else if r.URL.Path == "/logout" {
 		// special path /logout
 		return handleLogout(w, r)

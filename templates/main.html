@@ -18,8 +18,7 @@
 	{{if eq .Domain "public"}}Anyone can view and edit these pages. You can create a domain to prevent others from editing your content.{{else}}{{ if .SignedIn}}Remember, everything you create is public but secret, so share at your own discretion. Only you can edit pages, since you are are logged in (log out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
 
-	{{ if .SignedIn}}
-	{{ if eq .Domain "public"}}{{else}}
+	{{ if or (not .DomainIsPrivate) (.SignedIn) }}
 		<p>
 		<h2>Recent pages</h2>
 		<ul>
@@ -37,9 +36,22 @@
 				<input type="text" name="q" value="" size="35">
 				<input type="submit" value="Search">
 			</form>
-		</p>
+	</p>
 	{{end}}
-	{{end}}
+	{{ if .SignedIn}}
+	<p>
+	<h2>Options</h2>
+		  <form action="/update" method="post">
+		  <input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
+		  Change password: <input type="password" name="password" value="" placeholder="Leave blank to keep same">
+		  <input type="text" name="domain_key" value="{{.DomainKey}}" style="display:none;">
+		  <input type="text" name="domain" value="{{.Domain}}" style="display:none;">
+		  <br>
+		  <input type="submit" value="Submit">
+		  </form>
+	</p>
+	{{ end}}
+
 	{{else}}
 	This domain does not yet exist. You can create it below.</p>{{end}}
 
