@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	log "github.com/cihub/seelog"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/schollz/rwtxt/src/utils"
@@ -478,7 +478,6 @@ func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	log.Println("key", key)
 	stmt, err := fs.db.Prepare("SELECT domains.name FROM keys INNER JOIN domains ON keys.domainid=domains.id WHERE keys.key=?")
 	if err != nil {
 		return
@@ -857,5 +856,43 @@ func (fs *FileSystem) getAllFromPreparedQuerySingleString(query string, args ...
 	if err != nil {
 		err = errors.Wrap(err, "getRows")
 	}
+	return
+}
+
+// setLogLevel determines the log level
+func SetLogLevel(level string) (err error) {
+
+	// https://en.wikipedia.org/wiki/ANSI_escape_code#3/4_bit
+	// https://github.com/cihub/seelog/wiki/Log-levels
+	appConfig := `
+	<seelog minlevel="` + level + `">
+	<outputs formatid="stdout">
+	<filter levels="debug,trace">
+		<console formatid="debug"/>
+	</filter>
+	<filter levels="info">
+		<console formatid="info"/>
+	</filter>
+	<filter levels="critical,error">
+		<console formatid="error"/>
+	</filter>
+	<filter levels="warn">
+		<console formatid="warn"/>
+	</filter>
+	</outputs>
+	<formats>
+		<format id="stdout"   format="%Date %Time [%LEVEL] %File %FuncShort:%Line %Msg %n" />
+		<format id="debug"   format="%Date %Time %EscM(37)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+		<format id="info"    format="%Date %Time %EscM(36)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+		<format id="warn"    format="%Date %Time %EscM(33)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+		<format id="error"   format="%Date %Time %EscM(31)[%LEVEL]%EscM(0) %File %FuncShort:%Line %Msg %n" />
+	</formats>
+	</seelog>
+	`
+	logger, err := log.LoggerFromConfigAsBytes([]byte(appConfig))
+	if err != nil {
+		return
+	}
+	log.ReplaceLogger(logger)
 	return
 }

@@ -109,8 +109,10 @@ func main() {
 
 	if *debug {
 		err = setLogLevel("debug")
+		db.SetLogLevel("debug")
 	} else {
 		err = setLogLevel("info")
+		db.SetLogLevel("info")
 	}
 	if err != nil {
 		panic(err)
@@ -191,6 +193,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 }
 
 func handleList(w http.ResponseWriter, r *http.Request, domain string, query string, files []db.File) (err error) {
+	// show the list page
 	return listTemplate.Execute(w, TemplateRender{
 		Title:      query + " pages",
 		Domain:     domain,
@@ -638,7 +641,7 @@ Disallow: /`))
 	return
 }
 
-// SetLogLevel determines the log level
+// setLogLevel determines the log level
 func setLogLevel(level string) (err error) {
 
 	// https://en.wikipedia.org/wiki/ANSI_escape_code#3/4_bit
