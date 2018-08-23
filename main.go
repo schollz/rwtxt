@@ -344,9 +344,25 @@ func handleLoginUpdate(w http.ResponseWriter, r *http.Request) (err error) {
 	if domain == "public" || domain == "" {
 		return handleMain(w, r, "public", "cannot modify public")
 	}
-	log.Debugf("[%s] [%s] [%s] [%s]", domain, domainKey, password, isPublic)
-	http.Redirect(w, r, "/"+domain, 302)
-	return nil
+
+	// check that the key is valid
+	domainFound, err := fs.CheckKey(domainKey)
+	if err != nil || domain != domainFound {
+		if err != nil {
+			log.Debug(err)
+		}
+		return handleMain(w, r, domain, err.Error())
+	}
+
+	err = fs.UpdateDomain(domain, password, isPublic)
+	message := "settings updated"
+	if password != "" {
+		message = "password updated"
+	}
+	if err != nil {
+		message = err.Error()
+	}
+	return handleMain(w, r, domain, message)
 }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {

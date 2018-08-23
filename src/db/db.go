@@ -551,6 +551,67 @@ func (fs *FileSystem) setDomain(domain, password string) (err error) {
 	return
 }
 
+func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	// first check if it is a domain
+	domainid, _, _, _ := fs.getDomainFromName(domain)
+	if domainid == 0 {
+		err = errors.New("domain does not exist")
+		return
+	}
+
+	domain = strings.ToLower(domain)
+	isPublicValue := 0
+	if ispublic {
+		isPublicValue = 1
+	}
+
+	tx, err := fs.db.Begin()
+	var stmt *sql.Stmt
+	if err != nil {
+		return errors.Wrap(err, "begin Save")
+	}
+
+	if password == "" {
+		stmt, err = tx.Prepare(`UPDATE domains 
+		SET 
+		ispublic = ?
+		WHERE name = ?`)
+		if err != nil {
+			return errors.Wrap(err, "stmt Save")
+		}
+		_, err = stmt.Exec(isPublicValue, domain)
+		if err != nil {
+			return errors.Wrap(err, "exec Save")
+		}
+	} else {
+		hashedPassword, err := utils.HashPassword(password)
+		if err != nil {
+			return errors.Wrap(err, "can't hash password")
+		}
+		stmt, err = tx.Prepare(`UPDATE domains 
+		SET 
+		hashed_pass = ?, 
+		ispublic = ?
+		WHERE name = ?`)
+		if err != nil {
+			return errors.Wrap(err, "stmt Save")
+		}
+		_, err = stmt.Exec(hashedPassword, isPublicValue, domain)
+		if err != nil {
+			return errors.Wrap(err, "exec Save")
+		}
+	}
+	defer stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit Save")
+	}
+	return
+}
+
 // ValidateDomain returns the domain id or an error if the password doesn't match or if the domain doesn't exist
 func (fs *FileSystem) ValidateDomain(domain, password string) (domainid int, err error) {
 	fs.Lock()
