@@ -41,6 +41,7 @@ type TemplateRender struct {
 	Domain            string
 	DomainID          int
 	DomainKey         string
+	DomainIsPublic    bool
 	SignedIn          bool
 	Message           string
 	NumResults        int
@@ -235,7 +236,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		showCookieMessage = true
 	}
 
-	_, domainErr := fs.GetDomainFromName(domain)
+	_, ispublic, domainErr := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
 	return mainTemplate.Execute(w, TemplateRender{
 		Title:             "rwtxt",
@@ -246,6 +247,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		Files:             files,
 		DomainExists:      domainErr == nil,
 		ShowCookieMessage: showCookieMessage,
+		DomainIsPublic:    ispublic || domain == "public",
 	})
 }
 
@@ -298,7 +300,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 	var key string
 
 	// check if exists
-	_, err = fs.GetDomainFromName(domain)
+	_, _, err = fs.GetDomainFromName(domain)
 	if err != nil {
 		// domain doesn't exist, create it
 		log.Debugf("domain '%s' doesn't exist, creating it", domain)
@@ -439,6 +441,16 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	initialMarkdown := ""
 	var f db.File
 	log.Debugf("%s %s %v", page, domain, havePage)
+
+	// if domainexists, and is not signed in and is not public,
+	// then restrict access
+	signedIn := isSignedIn(w, r, domain)
+	// check if domain is public and exists
+	_, ispublic, errGet := fs.GetDomainFromName(domain)
+	if errGet == nil && !signedIn && !ispublic {
+		return handleMain(w, r, domain, "domain is not public, sign in first")
+	}
+
 	if havePage {
 		var files []db.File
 		files, err = fs.Get(page, domain)
@@ -499,7 +511,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
 		Domain:    domain,
 		DomainKey: domainkey,
-		SignedIn:  isSignedIn(w, r, domain),
+		SignedIn:  signedIn,
 	})
 
 }
@@ -623,8 +635,9 @@ Disallow: /`))
 		}
 		// check to see if domain exists
 		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-		_, domainErr := fs.GetDomainFromName(domain)
+		_, _, domainErr := fs.GetDomainFromName(domain)
 		if domainErr != nil && cookieErr == nil {
+			log.Debug(domainErr)
 			// we are trying to goto a page that doesn't exist as a domain
 			// automatically create a new page for editing in the default domain
 			http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)

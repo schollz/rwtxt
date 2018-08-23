@@ -262,7 +262,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	if f.Domain == "" {
 		f.Domain = "public"
 	}
-	domainid, _, _ := fs.getDomainFromName(f.Domain)
+	domainid, _, _, _ := fs.getDomainFromName(f.Domain)
 	if domainid == 0 {
 		return errors.New("domain does not exist")
 	}
@@ -515,7 +515,7 @@ func (fs *FileSystem) SetDomain(domain, password string) (err error) {
 	// first check if it is a domain
 	fs.Lock()
 	defer fs.Unlock()
-	domainid, _, _ := fs.getDomainFromName(domain)
+	domainid, _, _, _ := fs.getDomainFromName(domain)
 	if domainid != 0 {
 		err = errors.New("domain already exists")
 		return
@@ -530,7 +530,7 @@ func (fs *FileSystem) setDomain(domain, password string) (err error) {
 		return errors.Wrap(err, "begin Save")
 	}
 
-	stmt, err := tx.Prepare(`INSERT INTO domains (name, hashed_pass) VALUES (?,?)`)
+	stmt, err := tx.Prepare(`INSERT INTO domains (name, hashed_pass, ispublic) VALUES (?,?,?)`)
 	if err != nil {
 		return errors.Wrap(err, "stmt Save")
 	}
@@ -539,7 +539,7 @@ func (fs *FileSystem) setDomain(domain, password string) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "can't hash password")
 	}
-	_, err = stmt.Exec(domain, hashedPassword)
+	_, err = stmt.Exec(domain, hashedPassword, 0)
 	if err != nil {
 		return errors.Wrap(err, "exec Save")
 	}
@@ -561,7 +561,7 @@ func (fs *FileSystem) ValidateDomain(domain, password string) (domainid int, err
 // ValidateDomain returns the domain id or an error if the password doesn't match or if the domain doesn't exist
 func (fs *FileSystem) validateDomain(domain, password string) (domainid int, err error) {
 	domain = strings.ToLower(domain)
-	domainid, hashedPassword, err := fs.getDomainFromName(domain)
+	domainid, hashedPassword, _, err := fs.getDomainFromName(domain)
 	if domainid == 0 {
 		err = errors.New("domain " + domain + " does not exist")
 		return
@@ -577,20 +577,22 @@ func (fs *FileSystem) validateDomain(domain, password string) (domainid int, err
 }
 
 // GetDomainFromName returns the domain id, throwing an error if it doesn't exist
-func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, err error) {
+func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, ispublic bool, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	domain = strings.ToLower(domain)
-	domainid, _, err = fs.getDomainFromName(domain)
+	var ispublicint int
+	domainid, _, ispublicint, err = fs.getDomainFromName(domain)
 	if domainid == 0 {
 		err = errors.New("domain " + domain + " does not exist")
 	}
+	ispublic = ispublicint == 1
 	return
 }
 
-func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPassword string, err error) {
+func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPassword string, ispublic int, err error) {
 	// prepare statement
-	query := "SELECT id,hashed_pass FROM domains WHERE name = ?"
+	query := "SELECT id,hashed_pass,ispublic FROM domains WHERE name = ?"
 	stmt, err := fs.db.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
@@ -607,11 +609,13 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPass
 	// loop through rows
 	defer rows.Close()
 	for rows.Next() {
-		err = rows.Scan(&domainid, &hashedPassword)
+		var an_int64 sql.NullInt64
+		err = rows.Scan(&domainid, &hashedPassword, &an_int64)
 		if err != nil {
 			err = errors.Wrap(err, "getRows")
 			return
 		}
+		ispublic = int(an_int64.Int64)
 	}
 	err = rows.Err()
 	if err != nil {
