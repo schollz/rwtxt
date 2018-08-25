@@ -161,8 +161,7 @@ document.getElementById("editable").addEventListener('focusin', function (e) {
 
 
 var autoExpand = function (field) {
-    // Reset field height
-    field.style.height = 'inherit';
+    console.log("autoexpanding");
     // Get the computed styles for the element
     var computed = window.getComputedStyle(field);
     // Calculate the height
@@ -171,12 +170,14 @@ var autoExpand = function (field) {
         field.scrollHeight +
         parseInt(computed.getPropertyValue('padding-bottom'), 10) +
         parseInt(computed.getPropertyValue('border-bottom-width'), 10);
-
-    field.style.height = height + 'px';
+    if (field.style.height != height + 'px') {
+        // Reset field height
+        field.style.height = 'inherit';
+        field.style.height = height + 'px';    
+    }
 };
 
 document.getElementById("editable").addEventListener('input', function (event) {
-    if (event.target.tagName.toLowerCase() !== 'textarea') return;
     autoExpand(event.target);
 }, false);
 

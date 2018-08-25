@@ -5,7 +5,7 @@
 <span id="connectedicon" class="icons">🔗</span>
 <div class="fonty" id="rendered">
     <span class="fr"><a href="/{{.Domain}}">Back</a><br>
-        {{if .SignedIn}}<a id='editlink'>Edit</a>{{end}}</span>
+        {{ if or (.SignedIn) (eq .Domain "public")}}<a id='editlink'>Edit</a>{{end}}</span>
         
 
     {{.Rendered}}
