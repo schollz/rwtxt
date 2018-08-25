@@ -6,6 +6,10 @@ const socketMessageListener = (event) => {
 };
 const socketOpenListener = (event) => {
     // console.log('Connected');
+    document.getElementById("connectedicon").style.display = 'inline-block';
+    setTimeout(function () {
+        document.getElementById("connectedicon").style.display = 'none';
+    }, 1000);
 };
 const socketCloseListener = (event) => {
     if (socket) {
