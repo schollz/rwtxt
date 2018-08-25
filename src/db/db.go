@@ -36,6 +36,7 @@ type File struct {
 	Domain   string
 	History  versionedtext.VersionedText
 	DataHTML template.HTML
+	Views    int
 }
 
 // New will initialize a filesystem
@@ -191,8 +192,8 @@ func (fs *FileSystem) NewFile(slug, data string) (f File) {
 	f = File{
 		ID:       utils.UUID(),
 		Slug:     slug,
-		Created:  time.Now(),
-		Modified: time.Now(),
+		Created:  time.Now().UTC(),
+		Modified: time.Now().UTC(),
 		Data:     data,
 	}
 	return
@@ -310,7 +311,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 		domainid,
 		f.Slug,
 		f.Created,
-		time.Now(),
+		time.Now().UTC(),
 		string(historyBytes),
 	)
 	if err != nil {
@@ -342,7 +343,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 
 	_, err = stmt2.Exec(
 		f.Slug,
-		time.Now(),
+		time.Now().UTC(),
 		string(historyBytes),
 		f.ID,
 	)
@@ -454,8 +455,8 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 		return
 	}
 	defer stmt.Close()
-	key = utils.Hash(time.Now().String(), utils.UUID())
-	_, err = stmt.Exec(domainid, key, time.Now())
+	key = utils.Hash(time.Now().UTC().String(), utils.UUID())
+	_, err = stmt.Exec(domainid, key, time.Now().UTC())
 	if err != nil {
 		return
 	}
@@ -476,6 +477,29 @@ func (fs *FileSystem) DeleteKey(key string) (err error) {
 	}
 	defer stmt.Close()
 	_, err = stmt.Exec(key)
+	return
+}
+
+func (fs *FileSystem) UpdateViews(f File) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	log.Debugf("updating views for %+v", f)
+	// update the views
+	tx, err := fs.db.Begin()
+	if err != nil {
+		return
+	}
+	stmt, err := tx.Prepare("UPDATE fs SET views=? WHERE id=?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(f.Views+1, f.ID)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
 	return
 }
 
@@ -509,7 +533,7 @@ func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
 		return
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(time.Now(), key)
+	_, err = stmt.Exec(time.Now().UTC(), key)
 	if err != nil {
 		return
 	}
@@ -697,7 +721,7 @@ func (fs *FileSystem) GetTopX(domain string, num int) (files []File, err error) 
 	fs.Lock()
 	defer fs.Unlock()
 	return fs.getAllFromPreparedQuery(`
-	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history FROM fs 
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
 	INNER JOIN fts ON fs.id=fts.id 
 	INNER JOIN domains ON fs.domainid=domains.id
 	WHERE 
@@ -715,7 +739,7 @@ func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 func (fs *FileSystem) get(id string, domain string) (files []File, err error) {
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history FROM fs 
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
 		INNER JOIN fts ON fs.id=fts.id 
 		INNER JOIN domains ON fs.domainid=domains.id
 		WHERE 
@@ -732,7 +756,7 @@ func (fs *FileSystem) get(id string, domain string) (files []File, err error) {
 	}
 
 	files, err = fs.getAllFromPreparedQuery(`
-	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history 
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views
 	FROM fs 
 	INNER JOIN fts ON fs.id=fts.id 
 	INNER JOIN domains ON fs.domainid=domains.id
@@ -792,7 +816,7 @@ func (fs *FileSystem) Find(text string, domain string) (files []File, err error)
 	defer fs.Unlock()
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,snippet(fts),fs.history FROM fts 
+		SELECT fs.id,fs.slug,fs.created,fs.modified,snippet(fts),fs.history,fs.views FROM fts 
 			INNER JOIN fs ON fs.id=fts.id 
 			INNER JOIN domains ON fs.domainid=domains.id
 			WHERE fts.data MATCH ?
@@ -873,6 +897,7 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 			&f.Modified,
 			&f.Data,
 			&history,
+			&f.Views,
 		)
 		if err != nil {
 			err = errors.Wrap(err, "get rows of file")

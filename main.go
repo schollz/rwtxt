@@ -524,6 +524,13 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	if f.Data == "" {
 		f.Data = introText
 	}
+	// update the view count
+	go func() {
+		err := fs.UpdateViews(f)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 	return viewEditTemplate.Execute(w, TemplateRender{
 		Page:      page,
 		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),

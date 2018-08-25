@@ -9,11 +9,12 @@
 
 a {
     /* border-bottom: 0.5px solid #0000FF;*/
-    color: #0000FF; 
+    color: #0000FF;
     text-decoration: none;
 }
 
-.main, textarea {
+.main,
+textarea {
     font-family: "Times New Roman", Times, serif;
     font-size: 1.3rem;
     line-height: 1.3;
@@ -32,11 +33,25 @@ textarea {
     -moz-box-shadow: none;
     box-shadow: none;
     resize: none;
-    overflow:hidden;
+    overflow: hidden;
 }
 
 li {
     line-height: 140%;
+}
+
+.smaller {
+    font-size: 70%;
+}
+
+.grayed {
+    color: #aaa;
+    text-align: center;
+    padding-top: 3em;
+}
+
+a.grayed {
+    border-bottom: 0.5px solid #aaa;
 }
 
 pre {
@@ -53,7 +68,7 @@ pre {
 }
 
 code {
-    font-size: 70%;
+    font-size: 80%;
     line-height: 70%;
 }
 
@@ -66,7 +81,7 @@ code {
     position: fixed;
     top: 1em;
     right: 1em;
-    display:none;
+    display: none;
 }
 
 #editlink:hover {
@@ -74,7 +89,8 @@ code {
 }
 
 @media screen and (min-width: 0em) and (max-width: 30em) {
-    textarea,.main {
+    textarea,
+    .main {
         font-size: 1.1rem;
     }
     .main {
@@ -84,7 +100,8 @@ code {
 }
 
 @media screen and (min-width: 30em) and (max-width: 60em) {
-    textarea,.main {
+    textarea,
+    .main {
         font-size: 1.2rem;
     }
     .main {
@@ -123,21 +140,45 @@ img {
 }
 
 @-webkit-keyframes fadein {
-    from {bottom: 0; opacity: 0;} 
-    to {bottom: 30px; opacity: 1;}
+    from {
+        bottom: 0;
+        opacity: 0;
+    }
+    to {
+        bottom: 30px;
+        opacity: 1;
+    }
 }
 
 @keyframes fadein {
-    from {bottom: 0; opacity: 0;}
-    to {bottom: 30px; opacity: 1;}
+    from {
+        bottom: 0;
+        opacity: 0;
+    }
+    to {
+        bottom: 30px;
+        opacity: 1;
+    }
 }
 
 @-webkit-keyframes fadeout {
-    from {bottom: 30px; opacity: 1;} 
-    to {bottom: 0; opacity: 0;}
+    from {
+        bottom: 30px;
+        opacity: 1;
+    }
+    to {
+        bottom: 0;
+        opacity: 0;
+    }
 }
 
 @keyframes fadeout {
-    from {bottom: 30px; opacity: 1;}
-    to {bottom: 0; opacity: 0;}
+    from {
+        bottom: 30px;
+        opacity: 1;
+    }
+    to {
+        bottom: 0;
+        opacity: 0;
+    }
 }

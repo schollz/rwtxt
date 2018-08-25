@@ -9,6 +9,11 @@
         
 
     {{.Rendered}}
+
+    <p class="grayed smaller">
+        Permalink: <a href="/{{.Domain}}/{{.File.ID}}" class="grayed">rwtxt.com/{{.Domain}}/{{.File.ID}}</a><br>
+        Last modified: {{.File.Modified.Format "Mon Jan 2 3:04pm 2006"}}<br>
+    {{.File.Views}} views</p>
 </div>
 <form id="dropzoneForm" action="/upload?domain={{.Domain}}" class="dropzone">
 <textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>

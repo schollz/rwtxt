@@ -1,6 +1,6 @@
 {{template "header" .}}
 <div class="main" class="fonty">
-	{{ if .SignedIn}}
+	{{ if or (.SignedIn) (eq .Domain "public")}}
 	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>New page</a>
 	{{end}}
 	{{with .Message}}
@@ -18,7 +18,7 @@
 	{{if eq .Domain "public"}}Anyone can view and edit these pages. You can create a domain to prevent others from editing your content.{{else}}{{ if .SignedIn}}Remember, everything you create is public but secret, so share at your own discretion. Only you can edit pages, since you are are logged in (log out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
 
-	{{ if or (not .DomainIsPrivate) (.SignedIn) }}
+	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
 		<p>
 		<h2>Recent pages</h2>
 		<ul>
