@@ -669,6 +669,14 @@ Disallow: /`))
 			http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
 			return
 		}
+
+		// check to see if page exists in public domain and redirect to it
+		fs, _ := fs.Get(domain, "public")
+		if len(fs) > 0 {
+			http.Redirect(w, r, "/public/"+domain, 302)
+			return
+		}
+
 		// domain exists, handle normally
 		return handleMain(w, r, domain, "")
 

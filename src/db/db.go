@@ -150,6 +150,11 @@ func (fs *FileSystem) initializeDB() (err error) {
 	if err != nil {
 		return
 	}
+	err = fs.UpdateDomain("public", "", true)
+	if err != nil {
+		return
+	}
+
 	fs.DumpSQL()
 	return
 }
