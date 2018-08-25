@@ -8,14 +8,13 @@
 	{{end}}
 
 	<h1>Welcome</h1>
-	<p>This is <em>rwtxt</em>, a space for <em>reading and writing text</em>. <em>rwtxt</em> can be used
-	as a blog, a pastebin, a notepad.
+	<p>This is <em>rwtxt</em>, a space for <em>reading and writing text</em> which you can use	as a blog, a pastebin, or a notepad.
 	</p>
 
 	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
 	
 	{{if .DomainExists}}
-	{{if eq .Domain "public"}}Anyone can view and edit these pages. You can create a domain to prevent others from editing your content.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
+	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
@@ -59,7 +58,7 @@
 	<p>
 			{{if eq .Domain "public"}}
 				<h2>Create domain</h2>
-				<p>Creating a domain allows you to make new posts that only you can edit. Remember, everything you create is public but secret, so share at your own discretion.</p>
+				<p>Creating a domain allows you to make new posts that only you can edit.</p>
 			{{ else }}
 				{{if .DomainExists}}
 					{{ if .SignedIn}}
