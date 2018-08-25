@@ -161,7 +161,6 @@ document.getElementById("editable").addEventListener('focusin', function (e) {
 
 
 var autoExpand = function (field) {
-    console.log("autoexpanding");
     // Get the computed styles for the element
     var computed = window.getComputedStyle(field);
     // Calculate the height

@@ -15,7 +15,7 @@
 	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
 	
 	{{if .DomainExists}}
-	{{if eq .Domain "public"}}Anyone can view and edit these pages. You can create a domain to prevent others from editing your content.{{else}}{{ if .SignedIn}}Remember, everything you create is public but secret, so share at your own discretion. Only you can edit pages, since you are are logged in (log out
+	{{if eq .Domain "public"}}Anyone can view and edit these pages. You can create a domain to prevent others from editing your content.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
 		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
