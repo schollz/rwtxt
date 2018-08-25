@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"html/template"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -68,26 +67,26 @@ func New(name string) (fs *FileSystem, err error) {
 }
 
 func (fs *FileSystem) initializeDB() (err error) {
-	if _, errHaveSQL := os.Stat(fs.name + ".sql.gz"); errHaveSQL == nil {
-		fi, err := os.Open(fs.name + ".sql.gz")
-		if err != nil {
-			return err
-		}
-		defer fi.Close()
+	// if _, errHaveSQL := os.Stat(fs.name + ".sql.gz"); errHaveSQL == nil {
+	// 	fi, err := os.Open(fs.name + ".sql.gz")
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	defer fi.Close()
 
-		fz, err := gzip.NewReader(fi)
-		if err != nil {
-			return err
-		}
-		defer fz.Close()
+	// 	fz, err := gzip.NewReader(fi)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	defer fz.Close()
 
-		s, err := ioutil.ReadAll(fz)
-		if err != nil {
-			return err
-		}
-		_, err = fs.db.Exec(string(s))
-		return err
-	}
+	// 	s, err := ioutil.ReadAll(fz)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	_, err = fs.db.Exec(string(s))
+	// 	return err
+	// }
 	sqlStmt := `CREATE TABLE 
 		fs (
 			id TEXT NOT NULL PRIMARY KEY,
