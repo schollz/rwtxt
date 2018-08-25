@@ -46,7 +46,7 @@ li {
 
 .grayed {
     color: #aaa;
-    text-align: center;
+    text-align: right;
     padding-top: 3em;
 }
 
@@ -68,7 +68,7 @@ pre {
 }
 
 code {
-    font-size: 70%;
+    font-size: 80%;
     line-height: 70%;
 }
 

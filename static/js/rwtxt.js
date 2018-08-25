@@ -142,7 +142,7 @@ CY.loadEditor = function () {
     showMessage();
 };
 
-document.getElementById("editable").addEventListener('input', CY.debounce(CY.contentEdited, 300));
+document.getElementById("editable").addEventListener('input', CY.debounce(CY.contentEdited, 500));
 
 editlink = document.getElementById("editlink")
 if (editlink != null) {

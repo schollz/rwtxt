@@ -5,7 +5,6 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"html/template"
-	"log"
 	"math/rand"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 
 func RenderMarkdownToHTML(markdown string) template.HTML {
 	html := string(blackfriday.Run([]byte(markdown), blackfriday.WithRenderer(bfchroma.NewRenderer())))
-	log.Println(html)
 	p := bluemonday.UGCPolicy()
 	p.AllowAttrs("href").OnElements("a")
 	p.AllowAttrs("class").OnElements("a")
