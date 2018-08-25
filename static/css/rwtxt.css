@@ -2,6 +2,10 @@
     outline: 0px solid transparent;
 }
 
+body {
+    background: rgb(253, 253, 253);
+}
+
 .main {
     margin: 1em auto;
     max-width: 32em;
@@ -68,8 +72,8 @@ pre {
 }
 
 code {
-    font-size: 80%;
-    line-height: 70%;
+    font-size: 90%;
+    font-family: "Courier New", Courier, monospace;
 }
 
 .fr {
