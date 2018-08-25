@@ -35,6 +35,10 @@ textarea {
     overflow:hidden;
 }
 
+li {
+    line-height: 140%;
+}
+
 pre {
     white-space: pre-wrap;
     /* css-3 */
