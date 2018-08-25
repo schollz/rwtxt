@@ -182,8 +182,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
+	_, ispublic, _ := fs.GetDomainFromName(domain)
 	signedin, _, _ := isSignedIn(w, r, domain)
-	if !signedin {
+	if !signedin && !ispublic {
 		return handleMain(w, r, domain, "need to log in to search")
 	}
 	files, errGet := fs.Find(query, domain)
