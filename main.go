@@ -197,7 +197,11 @@ func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) 
 func handleList(w http.ResponseWriter, r *http.Request, domain string, query string, files []db.File) (err error) {
 	// show the list page
 	signedin, _, _ := isSignedIn(w, r, domain)
-	return listTemplate.Execute(w, TemplateRender{
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Content-Type", "text/html")
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	return listTemplate.Execute(gz, TemplateRender{
 		Title:      query + " pages",
 		Domain:     domain,
 		Files:      files,
@@ -247,7 +251,11 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 
 	_, ispublic, domainErr := fs.GetDomainFromName(domain)
 	files, err := fs.GetTopX(domain, 10)
-	return mainTemplate.Execute(w, TemplateRender{
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Content-Type", "text/html")
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	return mainTemplate.Execute(gz, TemplateRender{
 		Title:             "rwtxt",
 		Message:           message,
 		Domain:            domain,
@@ -461,8 +469,16 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 		b, _ := Asset("rwtxt.css")
 		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
+	} else if strings.HasSuffix(page, "prism.css") {
+		b, _ := Asset("prism.css")
+		w.Header().Set("Content-Type", "text/css")
+		w.Write(b)
 	} else if strings.HasSuffix(page, "dropzone.js") {
 		b, _ := Asset("dropzone.js")
+		w.Header().Set("Content-Type", "text/javascript")
+		w.Write(b)
+	} else if strings.HasSuffix(page, "prism.js") {
+		b, _ := Asset("prism.js")
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(b)
 	}
@@ -532,7 +548,12 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			log.Error(err)
 		}
 	}()
-	return viewEditTemplate.Execute(w, TemplateRender{
+
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Content-Type", "text/html")
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	return viewEditTemplate.Execute(gz, TemplateRender{
 		Page:      page,
 		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
 		File:      f,

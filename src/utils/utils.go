@@ -8,18 +8,18 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/Depado/bfchroma"
 	"github.com/microcosm-cc/bluemonday"
 	"golang.org/x/crypto/bcrypt"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
 
 func RenderMarkdownToHTML(markdown string) template.HTML {
-	html := string(blackfriday.Run([]byte(markdown), blackfriday.WithRenderer(bfchroma.NewRenderer())))
+	html := string(blackfriday.Run([]byte(markdown)))
 	p := bluemonday.UGCPolicy()
 	p.AllowAttrs("href").OnElements("a")
 	p.AllowAttrs("class").OnElements("a")
 	p.AllowAttrs("style").OnElements("span")
+	p.AllowAttrs("class").OnElements("code")
 	p.AllowElements("p")
 	html = p.Sanitize(html)
 

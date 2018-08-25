@@ -483,7 +483,6 @@ func (fs *FileSystem) UpdateViews(f File) (err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	log.Debugf("updating views for %+v", f)
 	// update the views
 	tx, err := fs.db.Begin()
 	if err != nil {
