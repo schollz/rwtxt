@@ -11,6 +11,33 @@ href="https://github.com/schollz/rwtxt/releases/latest"><img
 src="https://img.shields.io/badge/version-2.11.0-brightgreen.svg?style=flat-square"
 alt="Version"></a> </p>
 
-<p align="center">A cms for minimalists</a></p>
+<p align="center">A cms for absolute minimalists</a></p>
 
-*rwtxt* is a self-contained content management system that makes jotting notes easy and _fast_. The most important feature here is _simplicity_. 
+What is *rwtxt*?
+
+*rwtxt* is an [open-source](https://github.com/schollz/rwtxt) application where you can store any text online for easy "sharing".
+
+**Reading**
+
+*rwtxt* is organized in *domains* - places where you can privately or publicly store your text. You can [create your own domain](/public) in 10 seconds.
+
+When you make a new domain it will be private by default, so only you can view/search/edit your own text. 
+
+Once you make a domain you will se an option to make your domain *public* so that anyone can view/search it. However, only people with the domain password can edit in your domain - making *rwtxt* useful as a password-protected wiki. (The one exception is the [`/public`](/public) domain, which anyone can edit/view - making *rwtxt* useful as a pastebin).
+
+**Writing**
+
+To write in *rwtxt*, just create a new page and click "Edit", or goto a URL for the thing you want to write about - like `rwtxt.com/something-i-want-to-write`. When you write in *rwtxt* you can format your text in [Markdown](https://guides.github.com/features/mastering-markdown/).
+
+In addition, writing triple backtick code blocks:
+
+
+    ```javascript
+    console.log("hello, world");
+    ```
+
+produces code highlighted with [prism.js](https://prismjs.com/):
+
+```javascript
+console.log("hello, world");
+```
