@@ -94,7 +94,8 @@ func (fs *FileSystem) initializeDB() (err error) {
 			slug TEXT,
 			created TIMESTAMP,
 			modified TIMESTAMP,
-			history TEXT
+			history TEXT,
+			views INTEGER DEFAULT 0
 		);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
@@ -114,7 +115,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
 		hashed_pass TEXT,
-		ispublic INTEGER
+		ispublic INTEGER DEFAULT 0
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
@@ -137,7 +138,8 @@ func (fs *FileSystem) initializeDB() (err error) {
 	blobs (
 		id TEXT NOT NULL PRIMARY KEY,
 		name TEXT,
-		data BLOB
+		data BLOB,
+		views INTEGER DEFAULT 0
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
@@ -172,7 +174,7 @@ func (fs *FileSystem) DumpSQL() (err error) {
 	}
 	gf := gzip.NewWriter(fi)
 	fw := bufio.NewWriter(gf)
-	err = sqlite3dump.DumpDB(fs.db, fw)
+	err = sqlite3dump.DumpMigration(fs.db, fw)
 	fw.Flush()
 	gf.Close()
 	fi.Close()
