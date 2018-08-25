@@ -15,7 +15,7 @@
 	
 	{{if .DomainExists}}
 	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
-		<a href="/logout?d={{.Domain}}">here</a>). {{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
+		<a href="/logout?d={{.Domain}}">here</a>). {{if .DomainIsPrivate}}Only you can view pages, since your domain is private.{{else}}Anyone can view pages, since your domain is public.{{end}}{{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
 		<p>
