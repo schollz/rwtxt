@@ -1,21 +1,35 @@
 {{template "header" .}}
 <div class="main" class="fonty">
+	<div class="fr">
 	{{ if or (.SignedIn) (eq .Domain "public")}}
-	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>New page</a>
+	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>New page</a><br>
 	{{end}}
+	{{ if not .SignedIn}}
+	<a onclick="document.getElementById('id01').style.display='block'">Log in</a>
+	{{ end }}
+</div>
 	{{with .Message}}
 	<p style="color:red;"><em>{{.}}</em></p>
 	{{end}}
 
-	<h1>Welcome</h1>
+	<h1>{{if eq .Domain "public"}}Welcome{{else}}{{.Domain}}{{end}}</h1>
+	
+	{{if eq .Domain "public"}}
 	<p>This is <em>rwtxt</em>, a space for <em>reading and writing text</em> which you can use	as a blog, a pastebin, or a notepad.
 	</p>
+	{{end}}
 
 	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
 	
 	{{if .DomainExists}}
-	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
-		<a href="/logout?d={{.Domain}}">here</a>). {{if .DomainIsPrivate}}Only you can view pages, since your domain is private.{{else}}Anyone can view pages, since your domain is public.{{end}}{{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
+	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>. If you want to keep reading and writing to yourself, then you can <a onclick="document.getElementById('id01').style.display='block'">login to your own domain</a>.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
+		<a href="/logout?d={{.Domain}}">here</a>). {{if .DomainIsPrivate}}Only you can view pages, since your domain is private.{{else}}Anyone can view pages, since your domain is public.{{end}}</p><p>You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.{{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
+
+
+	{{if eq .Domain "public"}}
+	<p>Read more about rwtxt <a href="/rwtxt">here</a>.
+	</p>
+	{{end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
 		<p>
@@ -30,10 +44,9 @@
 		</ul>
 	</p>
 	<p>
-	<h2>Search</h2>
 			<form action="/{{.Domain}}" method="get">
-				<input type="text" name="q" value="" size="35">
-				<input type="submit" value="Search">
+				<input type="text" name="q" value="" size="35" placeholder="Search domain...">
+				<input class="button1" type="submit" value="Search">
 			</form>
 	</p>
 	{{end}}
@@ -42,11 +55,10 @@
 	<h2>Options</h2>
 		  <form action="/update" method="post">
 		  <input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
-		  Change password: <input type="password" name="password" value="" placeholder="Leave blank to keep same">
+		  <input type="password" name="password" value="" placeholder="Update password">
 		  <input type="text" name="domain_key" value="{{.DomainKey}}" style="display:none;">
 		  <input type="text" name="domain" value="{{.Domain}}" style="display:none;">
-		  <br>
-		  <input type="submit" value="Submit">
+		  <input class="button1" type="submit" value="Submit">
 		  </form>
 	</p>
 	{{ end}}
@@ -55,29 +67,6 @@
 	This domain does not yet exist. You can create it below.</p>{{end}}
 
 
-	<p>
-			{{if eq .Domain "public"}}
-				<h2>Create domain</h2>
-				<p>Creating a domain allows you to make new posts that only you can edit.</p>
-			{{ else }}
-				{{if .DomainExists}}
-					{{ if .SignedIn}}
-					<h2>Create another domain</h2>
-					{{ else }}
-					<h2>Log in</h2>
-					<p>You can view pages without logging in, but you cannot edit unless you log in first.</p>
-					{{ end }}
-				{{ else }}
-					<h2>Create domain</h2>
-					<p>Creating a domain allows you to make new posts that only you can edit (but anyone can view).</p>		
-				{{end}}
-			{{end}}
-		<form action="/login" method="post">
-			<input type="text" name="domain" value="" placeholder="Enter domain name..." size="20">
-			<input name="password" value="" type="password" placeholder="Enter a key..." size="20">
-			<input type="submit" value="Submit">
-		</form>
-	</p>
 
 
 	{{ if .ShowCookieMessage}}
@@ -100,4 +89,44 @@
 	
 	{{ end }}
 </div>
+
+<div id="id01" class="modal">
+  
+	<form class="modal-content animate" action="/login" method="post">
+	  <div class="imgcontainer">
+		<span onclick="document.getElementById('id01').style.display='none'" class="close" title="Close Modal">&times;</span>
+		<img src="img_avatar2.png" alt="Avatar" class="avatar">
+	  </div>
+  
+	  <div class="container">
+		<label for="domain"><b>Domain</b></label>
+		<input class="login" type="text" placeholder="Enter Domain" name="domain" required>
+  
+		<label for="password"><b>Password</b></label>
+		<input class="login" type="password" placeholder="Enter Password" name="password" required>
+		  
+		<button type="submit">Login</button>
+	  </div>
+  
+	  <div class="container" style="background-color:#f1f1f1">
+		<button type="button" onclick="document.getElementById('id01').style.display='none'" class="cancelbtn">Cancel</button>
+	  </div>
+	</form>
+</div>
+
+<script>
+// Get the modal
+var modal = document.getElementById('id01');
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+	if (event.target == modal) {
+		modal.style.display = "none";
+	}
+}
+</script>
+
+
+
+	
 {{template "footer" .}}
