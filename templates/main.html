@@ -2,7 +2,7 @@
 <div class="main" class="fonty">
 	<div class="fr">
 	{{ if or (.SignedIn) (eq .Domain "public")}}
-	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>New page</a><br>
+	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>Write</a><br>
 	{{end}}
 	{{ if not .SignedIn}}
 	<a onclick="document.getElementById('id01').style.display='block'">Log in</a>
@@ -22,18 +22,24 @@
 	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
 	
 	{{if .DomainExists}}
-	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>. If you want to keep reading and writing to yourself, then you can <a onclick="document.getElementById('id01').style.display='block'">login to your own domain</a>.{{else}}{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
-		<a href="/logout?d={{.Domain}}">here</a>). {{if .DomainIsPrivate}}Only you can view pages, since your domain is private.{{else}}Anyone can view pages, since your domain is public.{{end}}</p><p>You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.{{else}}You are not logged in and cannot edit pages.{{end}}{{end}}</p>
+	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>. If you want to keep reading and writing to yourself, then you can <a onclick="document.getElementById('id01').style.display='block'">login to your own domain</a>.{{else}}
+	{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
+		<a href="/logout?d={{.Domain}}">here</a>). 
+	{{if .DomainIsPrivate}}
+	Only you can view pages, since your domain is private.
+	{{else}}
+	Anyone can view pages, since your domain is public.
+	{{end}}</p><p>You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.{{else}}You are not logged in and cannot edit {{ if .DomainIsPrivate}} or view {{end}}pages. <a href="/public">Go back </a> to the public domain.{{end}}{{end}}</p>
 
 
 	{{if eq .Domain "public"}}
-	<p>Read more about rwtxt <a href="/rwtxt">here</a>.
+	<p>Read more about rwtxt <a href="/rwtxt/about">here</a>.
 	</p>
 	{{end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
 		<p>
-		<h2>Recent pages</h2>
+		<h2>Read</h2>
 		<ul>
 			{{range .Files}}
 			<li>
