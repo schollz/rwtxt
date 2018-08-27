@@ -5,15 +5,18 @@
 <span id="connectedicon" class="icons">🔗</span>
 <div class="fonty" id="rendered">
     <span class="fr"><a href="/{{.Domain}}">Back</a><br>
-        {{ if or (.SignedIn) (eq .Domain "public")}}<a id='editlink'>Edit</a>{{end}}</span>
+        {{ if or (.SignedIn) (eq .Domain "public")}}<a id='editlink'>Edit</a>{{end}}
+    
+    </span>
         
 
     {{.Rendered}}
 
-    <p class="grayed smaller">
+    <div class="grayed smaller">
+        <br><br><br>
         Permalink: <a href="/{{.Domain}}/{{.File.ID}}" class="grayed">/{{.Domain}}/{{.File.ID}}</a><br>
         Last modified: {{.File.Modified.Format "Mon Jan 2 3:04pm 2006"}}<br>
-    {{.File.Views}} views</p>
+    {{.File.Views}} views</div>
 </div>
 <form id="dropzoneForm" action="/upload?domain={{.Domain}}" class="dropzone">
 <textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>

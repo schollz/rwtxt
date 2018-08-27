@@ -27,6 +27,7 @@ textarea {
     font-family: "Times New Roman", Times, serif;
     font-size: 1.3rem;
     line-height: 1.3;
+    background: rgb(253, 253, 253);
 }
 
 textarea {
@@ -56,7 +57,7 @@ li {
 .grayed {
     color: #aaa;
     text-align: right;
-    padding-top: 4em;
+    padding-top: 3em;
 }
 
 a.grayed {
