@@ -11,6 +11,10 @@ body {
     max-width: 32em;
 }
 
+h2 {
+    margin-top: 1.5em;
+}
+
 a {
     /* border-bottom: 0.5px solid #0000FF;*/
     color: #0000FF;
