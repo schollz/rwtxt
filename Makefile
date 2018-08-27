@@ -14,6 +14,7 @@ build:
 	minify static/js/dropzone.js | gzip -9 > assets/dropzone.js
 	minify static/css/prism.css | gzip -9 > assets/prism.css
 	minify static/js/prism.js | gzip -9  > assets/prism.js
+	gzip -9 -c static/img/logo.png  > assets/logo.png
 	cd assets && go-bindata * && cd ..
 	mv assets/bindata.go .
 	go build -v --tags "fts4"	

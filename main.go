@@ -481,6 +481,10 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 		b, _ := Asset("prism.js")
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(b)
+	} else if strings.HasSuffix(page, "logo.png") {
+		b, _ := Asset("logo.png")
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(b)
 	}
 	return
 }
