@@ -670,9 +670,12 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 		// check to see if there is a default domain
 		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
 		if cookieErr == nil {
-			// domain exists, handle normally
-			http.Redirect(w, r, "/"+cookie.Value, 302)
-			return
+			_, _, domainErr := fs.GetDomainFromName(domain)
+			if domainErr == nil {
+				// domain exists, redirect to it
+				http.Redirect(w, r, "/"+cookie.Value, 302)
+				return
+			}
 		}
 		http.Redirect(w, r, "/public", 302)
 	} else if r.URL.Path == "/robots.txt" {
