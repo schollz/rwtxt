@@ -2,8 +2,8 @@ HASH=$(shell git describe --always)
 LDFLAGS=-ldflags "-s -w -X main.Version=${HASH}"
 
 build:
-	# go get -v github.com/tdewolff/minify/...
-	# go get -v github.com/jteeuwen/go-bindata/...
+	go install -v github.com/tdewolff/minify/cmd/minify
+	go install -v github.com/jteeuwen/go-bindata/go-bindata
 	rm -rf assets 
 	mkdir assets
 	cp templates/main.html assets/main.html
