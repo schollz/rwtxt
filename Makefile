@@ -1,3 +1,6 @@
+HASH=$(shell git describe --always)
+LDFLAGS=-ldflags "-s -w -X main.Version=${HASH}"
+
 build:
 	# go get -v github.com/tdewolff/minify/...
 	# go get -v github.com/jteeuwen/go-bindata/...
@@ -18,10 +21,17 @@ build:
 	gzip -9 -c static/img/logo.png  > assets/logo.png
 	cd assets && go-bindata * && cd ..
 	mv assets/bindata.go .
-	go build -v --tags "fts4"	
+	go build -v --tags "fts4" ${LDFLAGS}
 
 run: build
 	./rwtxt
 
 dev:
 	rerun make run
+
+release:
+	docker pull karalabe/xgo-latest
+	go get github.com/karalabe/xgo
+	mkdir -p bin
+	xgo -go "1.10.1" -dest bin ${LDFLAGS} -targets linux/amd64,linux/arm-6,darwin/amd64,windows/amd64 github.com/schollz/rwtxt
+	# cd bin && upx --brute kiki-linux-amd64

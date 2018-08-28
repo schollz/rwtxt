@@ -103,13 +103,19 @@ func init() {
 }
 
 var dbName string
+var Version string
 
 func main() {
 	var err error
 	var debug = flag.Bool("debug", false, "debug mode")
+	var showVersion = flag.Bool("v", false, "show version")
 	var database = flag.String("db", "rwtxt.db", "name of the database")
 	flag.Parse()
 
+	if *showVersion {
+		fmt.Println(Version)
+		return
+	}
 	if *debug {
 		err = setLogLevel("debug")
 		db.SetLogLevel("debug")

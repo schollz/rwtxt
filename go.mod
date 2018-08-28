@@ -3,6 +3,7 @@ module github.com/schollz/rwtxt
 require (
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/gorilla/websocket v1.3.0
+	github.com/karalabe/xgo v0.0.0-20180518092241-d164e4e53dfd // indirect
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/microcosm-cc/bluemonday v1.0.1
 	github.com/pkg/errors v0.8.0
