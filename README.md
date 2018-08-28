@@ -45,16 +45,16 @@ console.log("hello, world");
 
 ## Install
 
-You can easily install and run *rwtxt* on your own computer. First download the dependencies.
+You can easily install and run *rwtxt* on your own computer. First make sure to [install Go](https://golang.org/dl/). Then clone the repo:
+
 
 ```bash
-$ go get -u -v -d github.com/schollz/rwtxt
+$ git clone https://github.com/schollz/rwtxt.git
 ```
 
-Then make the program.
+Then you can make it with:
 
 ```bash
-$ cd $GOPATH/src/github.com/schollz/rwtxt
 $ make
 ```
 
