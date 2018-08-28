@@ -41,6 +41,7 @@ type TemplateRender struct {
 	DomainID          int
 	DomainKey         string
 	DomainIsPrivate   bool
+	DomainValue       template.HTMLAttr
 	SignedIn          bool
 	Message           string
 	NumResults        int
@@ -253,7 +254,7 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin
 func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
 	// check if first time user
 	signedin, domainKey, defaultDomain := isSignedIn(w, r, domain)
-
+	log.Debug(signedin, domainKey, defaultDomain)
 	// set the default domain if it doesn't exist
 	var showCookieMessage bool
 	if defaultDomain == "" {
@@ -264,11 +265,16 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 	}
 
 	_, ispublic, domainErr := fs.GetDomainFromName(domain)
+	if domainErr != nil {
+		// domain does NOT exist
+		signedin = false
+	}
 	files, err := fs.GetTopX(domain, 10)
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
+	log.Debug(signedin)
 	return mainTemplate.Execute(gz, TemplateRender{
 		Title:             "rwtxt",
 		Message:           message,
@@ -279,6 +285,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		DomainExists:      domainErr == nil,
 		DomainIsPrivate:   !ispublic && domain != "public",
 		DomainKey:         domainKey,
+		DomainValue:       template.HTMLAttr(`value="` + domain + `"`),
 		ShowCookieMessage: showCookieMessage,
 	})
 }
@@ -713,28 +720,27 @@ Disallow: /`))
 		if r.URL.Query().Get("q") != "" {
 			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
 		}
-		// check to see if domain exists
-		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-		_, _, domainErr := fs.GetDomainFromName(domain)
-		if domainErr != nil && cookieErr == nil {
-			log.Debug(domainErr)
-			// we are trying to goto a page that doesn't exist as a domain
-			// automatically create a new page for editing in the default domain
-			http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
-			return
-		}
 
-		// check to see if page exists in public domain and redirect to it
-		fs, _ := fs.Get(domain, "public")
-		if len(fs) > 0 {
-			http.Redirect(w, r, "/public/"+domain, 302)
-			return
-		}
+		// // check to see if domain exists
+		// cookie, cookieErr := r.Cookie("rwtxt-default-domain")
+		// _, _, domainErr := fs.GetDomainFromName(domain)
+		// if domainErr != nil && cookieErr == nil {
+		// 	log.Debug(domainErr)
+		// 	// we are trying to goto a page that doesn't exist as a domain
+		// 	// automatically create a new page for editing in the default domain
+		// 	http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
+		// 	return
+		// }
+
+		// // check to see if page exists in public domain and redirect to it
+		// fs, _ := fs.Get(domain, "public")
+		// if len(fs) > 0 {
+		// 	http.Redirect(w, r, "/public/"+domain, 302)
+		// 	return
+		// }
 
 		// domain exists, handle normally
 		return handleMain(w, r, domain, "")
-
-		return
 	} else if domain != "" && page != "" {
 		log.Debug("handle view edit")
 		return handleViewEdit(w, r, domain, page)

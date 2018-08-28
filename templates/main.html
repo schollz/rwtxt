@@ -92,7 +92,7 @@
   
 	  <div class="container">
 		<label for="domain"><b>Domain</b></label>
-		<input class="login" type="text" placeholder="Enter Domain" name="domain" required>
+		<input class="login" type="text" placeholder="Enter Domain" name="domain" {{ if and (not .SignedIn) (ne .Domain "public") }}{{.DomainValue}}{{end}} required>
   
 		<label for="password"><b>Password</b></label>
 		<input class="login" type="password" placeholder="Enter Password" name="password" required>
