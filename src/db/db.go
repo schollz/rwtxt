@@ -463,7 +463,23 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 	return
 }
 
-// CheckKey checks that it is a valid key for a domain
+// DeleteOldKeys deletes keys older than 5 days
+func (fs *FileSystem) DeleteOldKeys() (err error) {
+	// first check if it is a domain
+	fs.Lock()
+	defer fs.Unlock()
+
+	// first purge the database of old stuff
+	stmt, err := fs.db.Prepare(`DELETE FROM keys WHERE lastused <= DATETIME('now','-5 days')`)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec()
+	return
+}
+
+// DeleteKey deletes a specific key
 func (fs *FileSystem) DeleteKey(key string) (err error) {
 	// first check if it is a domain
 	fs.Lock()

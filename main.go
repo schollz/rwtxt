@@ -152,16 +152,20 @@ func serve() (err error) {
 	go func() {
 		lastDumped := time.Now()
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(120 * time.Second)
 			lastModified, errGet := fs.LastModified()
 			if errGet != nil {
 				panic(errGet)
 			}
-			if time.Since(lastDumped).Seconds()-time.Since(lastModified).Seconds() > 3 {
+			if time.Since(lastModified).Seconds() > 3 && time.Since(lastDumped).Seconds() > 10 {
 				log.Debug("dumping")
+				errDelete := fs.DeleteOldKeys()
+				if errDelete != nil {
+					log.Error(errDelete)
+				}
 				errDump := fs.DumpSQL()
 				if errDump != nil {
-					panic(errDump)
+					log.Error(errDump)
 				}
 				lastDumped = time.Now()
 			}
