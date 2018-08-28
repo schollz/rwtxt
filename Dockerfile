@@ -1,26 +1,21 @@
 # First build step
-FROM golang:1.10-alpine as builder
+FROM golang:1.11-alpine
 
 #WORKDIR /go/src/github.com/schollz/rwtxt
 #COPY . .
-# Enable crosscompiling
-ENV CGO_ENABLED=1
-
 # Install git and make, compile and cleanup
-RUN apk add --no-cache git make \
-    && go get -u -v github.com/jteeuwen/go-bindata/... \
-    && go get -u -v -d github.com/schollz/rwtxt \
-	&& cd /go/src/github.com/schollz/rwtxt \
+RUN apk add --no-cache git make g++ \
+    && go get -v github.com/jteeuwen/go-bindata/go-bindata \
+    && go get -v github.com/tdewolff/minify/... \
+    && git clone https://github.com/schollz/rwtxt.git \
+    && cd rwtxt \
     && make \
-    && apk del --purge git make \
-    && rm -rf /var/cache/apk*
+    && apk del --purge git make g++ \
+    && rm -rf /var/cache/apk* \
+    && mv /go/rwtxt/rwtxt /rwtxt \
+    && rm -rf /go
 
-# Second build step uses the minimal scratch Docker image
-FROM scratch
-# Copy the binary from the first step
-COPY --from=builder /go/src/github.com/schollz/rwtxt/rwtxt /usr/local/bin/rwtxt
-# Expose data folder
 VOLUME /data
-EXPOSE 8050
+EXPOSE 8142
 # Start rwtxt listening on any host
-CMD ["rwtxt"]
+CMD ["/rwtxt","--db","/data/rwtxt.db"]
