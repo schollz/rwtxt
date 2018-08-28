@@ -167,7 +167,7 @@ func serve() (err error) {
 			}
 		}
 	}()
-	log.Debugf("running on port 8152")
+	log.Info("running on port 8152")
 	http.HandleFunc("/", handler)
 	return http.ListenAndServe(":8152", nil)
 }
@@ -460,6 +460,10 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	if strings.HasSuffix(page, "rwtxt.js") {
 		b, _ := Asset("rwtxt.js")
 		w.Header().Set("Content-Type", "text/javascript")
+		w.Write(b)
+	} else if strings.HasSuffix(page, "normalize.css") {
+		b, _ := Asset("normalize.css")
+		w.Header().Set("Content-Type", "text/css")
 		w.Write(b)
 	} else if strings.HasSuffix(page, "dropzone.css") {
 		b, _ := Asset("dropzone.css")

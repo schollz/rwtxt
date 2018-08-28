@@ -9,6 +9,7 @@ build:
 	cp templates/header.html assets/header.html
 	cp templates/viewedit.html assets/viewedit.html
 	minify static/css/rwtxt.css | gzip -9   > assets/rwtxt.css
+	minify static/css/normalize.css | gzip -9   > assets/normalize.css
 	minify static/css/dropzone.css | gzip -9  > assets/dropzone.css
 	minify static/js/rwtxt.js | gzip -9  > assets/rwtxt.js
 	minify static/js/dropzone.js | gzip -9 > assets/dropzone.js
