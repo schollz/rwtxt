@@ -102,9 +102,12 @@ func init() {
 	listTemplate = template.Must(listTemplate.Parse(string(b)))
 }
 
+var dbName string
+
 func main() {
 	var err error
 	var debug = flag.Bool("debug", false, "debug mode")
+	var database = flag.String("db", "rwtxt.db", "name of the database")
 	flag.Parse()
 
 	if *debug {
@@ -117,6 +120,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	dbName = *database
 	defer log.Flush()
 
 	err = serve()
@@ -144,7 +148,7 @@ var wsupgrader = websocket.Upgrader{
 }
 
 func serve() (err error) {
-	fs, err = db.New("rwtxt.db")
+	fs, err = db.New(dbName)
 	if err != nil {
 		log.Error(err)
 		return
