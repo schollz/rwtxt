@@ -1,9 +1,11 @@
 language: go
 
 before_install:
+  - go get -d -v github.com/tdewolff/minify
   - go install -v github.com/tdewolff/minify/cmd/minify
+  - go get -d -v github.com/jteeuwen/go-bindata
   - go install -v github.com/jteeuwen/go-bindata/go-bindata
-  - go get -v -d github.com/schollz/rwtxt/...
+  - go get -v -d github.com/schollz/rwtxt
 
 go:
   - tip
