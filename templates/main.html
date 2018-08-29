@@ -29,8 +29,12 @@
 	Only you can view pages, since your domain is private.
 	{{else}}
 	Anyone can view pages, since your domain is public.
-	{{end}}</p><p>You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.{{else}}You are not logged in and cannot edit {{ if .DomainIsPrivate}} or view {{end}}pages. <a href="/public">Go back </a> to the public domain.{{end}}{{end}}</p>
+	{{end}}
+		{{else}}You are not logged in and cannot edit {{ if .DomainIsPrivate}} or view {{end}}pages. <a href="/public">Go back </a> to the public domain.{{end}}{{end}}</p>
 
+		{{ if gt (len .DomainList) 1 }}
+		<p>You are currently signed into {{ range $index, $element := .DomainList}}{{if $index}}, {{end}}<a href="/{{$element}}">{{$element}}</a>{{end}} domains. You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.</p>
+		{{ end}}
 
 	{{if eq .Domain "public"}}
 	<p>Read more about rwtxt <a href="/rwtxt/about">here</a>.

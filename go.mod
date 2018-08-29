@@ -2,6 +2,7 @@ module github.com/schollz/rwtxt
 
 require (
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v0.0.0-20180713052910-9f541cc9db5d // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/gorilla/websocket v1.3.0
@@ -11,11 +12,13 @@ require (
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/microcosm-cc/bluemonday v1.0.1
 	github.com/pkg/errors v0.8.0
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/schollz/sqlite3dump v1.2.0
 	github.com/schollz/versionedtext v1.0.0
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/shurcooL/sanitized_anchor_name v0.0.0-20170918181015-86672fcb3f95 // indirect
 	github.com/spf13/pflag v1.0.2 // indirect
+	github.com/stretchr/testify v1.2.2
 	github.com/tdewolff/minify v2.3.5+incompatible // indirect
 	github.com/tdewolff/parse v2.3.3+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20180820150726-614d502a4dac
