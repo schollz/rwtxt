@@ -249,8 +249,29 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin
 	}
 
 	// if signed in add it to the list
+	domainMap := getDomainListCookie(w,r)	
+	if signedin {
+		domainMap[domain] = true
+	}
+	domainList = setDomainListCookie(w,r,domainMap)
+	return
+}
+
+func setDomainListCookie(w http.ResponseWriter, r *http.Request, domainMap map[string]bool) (domainList []string) {
+	domainList = []string{}
+	for d := range domainMap {
+		domainList = append(domainList, d)
+	}
+	sort.Strings(domainList)
+	log.Debug(domainList)
+	expiration := time.Now().Add(365 * 24 * time.Hour)
+	cookieDomain := http.Cookie{Name: "rwtxt-domain-list", Value: strings.Join(domainList,","), Expires: expiration}
+	http.SetCookie(w, &cookieDomain)
+	return
+}
+func getDomainListCookie(w http.ResponseWriter, r *http.Request) (map[string]bool) {
 	domainMap := make(map[string]bool)
-	cookie, cookieErr = r.Cookie("rwtxt-domain-list")
+	cookie, cookieErr := r.Cookie("rwtxt-domain-list")
 	if cookieErr == nil {
 		if strings.Contains(cookie.Value,",") {
 			for _, d := range strings.Split(cookie.Value,",") {
@@ -258,21 +279,8 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin
 			}
 		}
 	}
-	if signedin {
-		domainMap[domain] = true
-	}
 	domainMap["public"] = true
-	expiration := time.Now().Add(365 * 24 * time.Hour)
-	domainList = []string{}
-	for d := range domainMap {
-		domainList = append(domainList, d)
-	}
-	sort.Strings(domainList)
-	cookieDomain := http.Cookie{Name: "rwtxt-domain-list", Value: strings.Join(domainList,","), Expires: expiration}
-	http.SetCookie(w, &cookieDomain)
-
-
-	return
+	return domainMap
 }
 
 func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
@@ -316,7 +324,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
-	domain := r.URL.Query().Get("d")
+	domain := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("d")))
 
 	// delete default domain cookie
 	_, err = r.Cookie("rwtxt-default-domain")
@@ -330,6 +338,13 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 		http.SetCookie(w, c)
 	}
+
+	// delete domain from list
+	domainMap := getDomainListCookie(w,r)	
+	delete(domainMap,domain)
+	log.Debug(domainMap,domain)
+	setDomainListCookie(w,r,domainMap)
+
 
 	// delete domain password cookie
 	cookie, err := r.Cookie(domain)
@@ -347,8 +362,9 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 		http.SetCookie(w, c)
 		http.Redirect(w, r, "/", 302)
-		return
 	}
+
+
 	return handleMain(w, r, domain, "You are not logged in.")
 }
 
