@@ -262,6 +262,7 @@ func setDomainListCookie(w http.ResponseWriter, r *http.Request, domainMap map[s
 	for d := range domainMap {
 		domainList = append(domainList, d)
 	}
+	log.Debugf("got domainList: %+v",domainList)
 	sort.Strings(domainList)
 	log.Debug(domainList)
 	expiration := time.Now().Add(365 * 24 * time.Hour)
@@ -280,6 +281,7 @@ func getDomainListCookie(w http.ResponseWriter, r *http.Request) (map[string]boo
 		}
 	}
 	domainMap["public"] = true
+	log.Debugf("got domainMap: %+v",domainMap)
 	return domainMap
 }
 
