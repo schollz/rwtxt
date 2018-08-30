@@ -17,7 +17,7 @@ build:
 	minify static/css/normalize.css | gzip -9   > assets/normalize.css
 	minify static/css/dropzone.css | gzip -9  > assets/dropzone.css
 	minify static/js/rwtxt.js | gzip -9  > assets/rwtxt.js
-	gzip -9 -c static/js/rwtxt.js > assets/rwtxt.js
+	# gzip -9 -c static/js/rwtxt.js > assets/rwtxt.js
 	minify static/js/dropzone.js | gzip -9 > assets/dropzone.js
 	minify static/css/prism.css | gzip -9 > assets/prism.css
 	minify static/js/prism.js | gzip -9  > assets/prism.js
