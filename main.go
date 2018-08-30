@@ -51,6 +51,7 @@ type TemplateRender struct {
 	Search            string
 	DomainExists      bool
 	ShowCookieMessage bool
+	EditOnly          bool
 }
 
 func init() {
@@ -249,11 +250,11 @@ func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin
 	}
 
 	// if signed in add it to the list
-	domainMap := getDomainListCookie(w,r)	
+	domainMap := getDomainListCookie(w, r)
 	if signedin {
 		domainMap[domain] = true
 	}
-	domainList = setDomainListCookie(w,r,domainMap)
+	domainList = setDomainListCookie(w, r, domainMap)
 	return
 }
 
@@ -262,26 +263,26 @@ func setDomainListCookie(w http.ResponseWriter, r *http.Request, domainMap map[s
 	for d := range domainMap {
 		domainList = append(domainList, d)
 	}
-	log.Debugf("got domainList: %+v",domainList)
+	log.Debugf("got domainList: %+v", domainList)
 	sort.Strings(domainList)
 	log.Debug(domainList)
 	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookieDomain := http.Cookie{Name: "rwtxt-domain-list", Value: strings.Join(domainList,","), Expires: expiration}
+	cookieDomain := http.Cookie{Name: "rwtxt-domain-list", Value: strings.Join(domainList, ","), Expires: expiration}
 	http.SetCookie(w, &cookieDomain)
 	return
 }
-func getDomainListCookie(w http.ResponseWriter, r *http.Request) (map[string]bool) {
+func getDomainListCookie(w http.ResponseWriter, r *http.Request) map[string]bool {
 	domainMap := make(map[string]bool)
 	cookie, cookieErr := r.Cookie("rwtxt-domain-list")
 	if cookieErr == nil {
-		if strings.Contains(cookie.Value,",") {
-			for _, d := range strings.Split(cookie.Value,",") {
+		if strings.Contains(cookie.Value, ",") {
+			for _, d := range strings.Split(cookie.Value, ",") {
 				domainMap[d] = true
 			}
 		}
 	}
 	domainMap["public"] = true
-	log.Debugf("got domainMap: %+v",domainMap)
+	log.Debugf("got domainMap: %+v", domainMap)
 	return domainMap
 }
 
@@ -342,11 +343,10 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// delete domain from list
-	domainMap := getDomainListCookie(w,r)	
-	delete(domainMap,domain)
-	log.Debug(domainMap,domain)
-	setDomainListCookie(w,r,domainMap)
-
+	domainMap := getDomainListCookie(w, r)
+	delete(domainMap, domain)
+	log.Debug(domainMap, domain)
+	setDomainListCookie(w, r, domainMap)
 
 	// delete domain password cookie
 	cookie, err := r.Cookie(domain)
@@ -365,7 +365,6 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 		http.SetCookie(w, c)
 		http.Redirect(w, r, "/", 302)
 	}
-
 
 	return handleMain(w, r, domain, "You are not logged in.")
 }
@@ -606,13 +605,13 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			return handleMain(w, r, domain, "domain does not exist")
 		}
 		log.Debugf("saved: %+v", f)
-		http.Redirect(w, r, "/"+domain+"/"+page+"?edit=1", 302)
+		http.Redirect(w, r, "/"+domain+"/"+page, 302)
 		return
 	}
 	initialMarkdown += "\n\n" + f.Data
-	if f.Data == "" {
-		f.Data = introText
-	}
+	// if f.Data == "" {
+	// 	f.Data = introText
+	// }
 	// update the view count
 	go func() {
 		err := fs.UpdateViews(f)
@@ -625,6 +624,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
+	log.Debug(strings.TrimSpace(f.Data))
 	return viewEditTemplate.Execute(gz, TemplateRender{
 		Page:      page,
 		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
@@ -635,6 +635,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		Domain:    domain,
 		DomainKey: domainKey,
 		SignedIn:  signedIn,
+		EditOnly:  strings.TrimSpace(f.Data) == "",
 	})
 
 }

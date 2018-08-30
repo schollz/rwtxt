@@ -3,6 +3,7 @@
 <span id="saved" class="icons">✔</span>
 <span id="notsaved" class="icons">❌</span>
 <span id="connectedicon" class="icons">🔗</span>
+{{ if not .EditOnly }}
 <div class="fonty" id="rendered">
     <span class="fr"><a href="/{{.Domain}}">Back</a><br>
         {{ if or (.SignedIn) (eq .Domain "public")}}<a id='editlink'>Edit</a>{{end}}
@@ -18,8 +19,9 @@
         Last modified: {{.File.Modified.Format "Mon Jan 2 3:04pm 2006"}}<br>
     {{.File.Views}} views</div>
 </div>
+{{ end }}
 <form id="dropzoneForm" action="/upload?domain={{.Domain}}" class="dropzone">
-<textarea class="fonty" id="editable" style="-webkit-user-select:text;display:none;" rows={{ .Rows }} autofocus>{{.File.Data}}</textarea>
+<textarea class="fonty" id="editable" style="-webkit-user-select:text;{{if not .EditOnly}}display:none;{{end}}" rows={{ .Rows }} placeholder="Click here and start writing" autofocus>{{.File.Data}}</textarea>
 </form>
 </div>
 <div id="snackbar">Write markdown, reload page when you are done!</div>
@@ -30,19 +32,19 @@
         intro_text: "{{.IntroText}}",
         domain_key: "{{.DomainKey}}",
         domain: "{{.Domain}}",
+        editonly: {{ if .EditOnly }}"yes"{{else}}"no"{{end}}
     }
 </script>
-<script src="/static/js/rwtxt.js"></script>
 
 <script src="/static/js/dropzone.js"></script>
-<script>
-    Dropzone.options.dropzoneForm = {
-        clickable: false,
-        maxFilesize:   10  , 
-        init: function initDropzone() {
-            this.on("complete", onUploadFinished);
-        }
-    };
-</script>
 <script src="/static/js/prism.js"></script>
+<script src="/static/js/rwtxt.js"></script>
+
+
+{{ if .EditOnly }}
+<script>
+     document.getElementById("editable").focus();
+</script>
+{{ end}}
+
 {{template "footer" .}}

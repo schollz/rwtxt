@@ -234,11 +234,23 @@ function onUploadFinished(file) {
 
 // if editing, keep focus always on the editable
 window.onclick= function (event) {
-    console.log(event);
     if (document.getElementById("editable").style.display != "none") {
        if (event.target.nodeName == "HTML") {
-           console.log("focusing")
             document.getElementById("editable").focus();
        } 
     }
+}
+
+
+Dropzone.options.dropzoneForm = {
+    clickable: false,
+    maxFilesize:   10  , 
+    init: function initDropzone() {
+        this.on("complete", onUploadFinished);
+    }
+};
+
+if (window.rwtxt.editonly == "yes") {
+    socketCloseListener();
+    showMessage();
 }
