@@ -740,6 +740,7 @@ func (fs *FileSystem) GetTopX(domain string, num int) (files []File, err error) 
 	INNER JOIN domains ON fs.domainid=domains.id
 	WHERE 
 		domains.name = ?
+		AND LENGTH(fts.data) > 0
 	ORDER BY modified DESC LIMIT ?`, domain, num)
 }
 

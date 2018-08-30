@@ -299,6 +299,9 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		showCookieMessage = true
 	}
 
+	// create a page to write to
+	newFile := createPage(domain)
+
 	_, ispublic, domainErr := fs.GetDomainFromName(domain)
 	if domainErr != nil {
 		// domain does NOT exist
@@ -314,7 +317,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		Title:             "rwtxt",
 		Message:           message,
 		Domain:            domain,
-		RandomUUID:        utils.UUID(),
+		RandomUUID:        newFile.ID,
 		SignedIn:          signedin,
 		Files:             files,
 		DomainExists:      domainErr == nil,
@@ -831,5 +834,20 @@ func setLogLevel(level string) (err error) {
 		return
 	}
 	log.ReplaceLogger(logger)
+	return
+}
+
+// createPage throws error if domain does not exist
+func createPage(domain string) (f db.File) {
+	f = db.File{
+		ID:       utils.UUID(),
+		Created:  time.Now(),
+		Domain:   domain,
+		Modified: time.Now(),
+	}
+	err := fs.Save(f)
+	if err != nil {
+		log.Debug(err)
+	}
 	return
 }
