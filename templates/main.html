@@ -1,5 +1,6 @@
 {{template "header" .}}
 <div class="main" class="fonty">
+	{{if not (eq .Domain "public")}}
 	<div class="fr">
 	{{ if or (.SignedIn) (eq .Domain "public")}}
 	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>Write</a><br>
@@ -7,7 +8,9 @@
 	{{ if not .SignedIn}}
 	<a onclick="document.getElementById('id01').style.display='block'">Log in</a>
 	{{ end }}
-</div>
+	</div>
+	{{ end }}
+	
 	{{with .Message}}
 	<p style="color:red;"><em>{{.}}</em></p>
 	{{end}}
@@ -39,6 +42,8 @@
 	{{if eq .Domain "public"}}
 	<p>Read more about rwtxt <a href="/rwtxt/about">here</a>.
 	</p>
+
+	<p>Write your rwtxt <a href="/{{.Domain}}/{{.RandomUUID}}">here</a>.</p>
 	{{end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
