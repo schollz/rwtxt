@@ -533,6 +533,8 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 			w.Header().Set("Content-Type", "text/css")
 		} else if strings.Contains(page, ".png") {
 			w.Header().Set("Content-Type", "image/png")
+		} else if strings.Contains(page, ".json") {
+			w.Header().Set("Content-Type", "application/json")
 		}
 		w.Write(b)
 	}
