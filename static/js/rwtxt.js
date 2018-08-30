@@ -231,3 +231,14 @@ function onUploadFinished(file) {
    // trigger a save
    CY.contentEdited();
 }
+
+// if editing, keep focus always on the editable
+window.onclick= function (event) {
+    console.log(event);
+    if (document.getElementById("editable").style.display != "none") {
+       if (event.target.nodeName == "HTML") {
+           console.log("focusing")
+            document.getElementById("editable").focus();
+       } 
+    }
+}
