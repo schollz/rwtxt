@@ -57,49 +57,49 @@ type TemplateRender struct {
 func init() {
 	var err error
 
-	b, err := Asset("viewedit.html")
+	b, err := Asset("assets/viewedit.html")
 	if err != nil {
 		panic(err)
 	}
 	viewEditTemplate = template.Must(template.New("viewedit").Parse(string(b)))
-	b, err = Asset("header.html")
+	b, err = Asset("assets/header.html")
 	if err != nil {
 		panic(err)
 	}
 	viewEditTemplate = template.Must(viewEditTemplate.Parse(string(b)))
-	b, err = Asset("footer.html")
+	b, err = Asset("assets/footer.html")
 	if err != nil {
 		panic(err)
 	}
 	viewEditTemplate = template.Must(viewEditTemplate.Parse(string(b)))
 
-	b, err = Asset("main.html")
+	b, err = Asset("assets/main.html")
 	if err != nil {
 		panic(err)
 	}
 	mainTemplate = template.Must(template.New("main").Parse(string(b)))
-	b, err = Asset("header.html")
+	b, err = Asset("assets/header.html")
 	if err != nil {
 		panic(err)
 	}
 	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
-	b, err = Asset("footer.html")
+	b, err = Asset("assets/footer.html")
 	if err != nil {
 		panic(err)
 	}
 	mainTemplate = template.Must(mainTemplate.Parse(string(b)))
 
-	b, err = Asset("list.html")
+	b, err = Asset("assets/list.html")
 	if err != nil {
 		panic(err)
 	}
 	listTemplate = template.Must(template.New("main").Parse(string(b)))
-	b, err = Asset("header.html")
+	b, err = Asset("assets/header.html")
 	if err != nil {
 		panic(err)
 	}
 	listTemplate = template.Must(listTemplate.Parse(string(b)))
-	b, err = Asset("footer.html")
+	b, err = Asset("assets/footer.html")
 	if err != nil {
 		panic(err)
 	}
@@ -522,40 +522,21 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	w.Header().Set("Vary", "Accept-Encoding")
 	w.Header().Set("Cache-Control", "public, max-age=7776000")
 	w.Header().Set("Content-Encoding", "gzip")
-	log.Debug(page)
-	if strings.HasSuffix(page, "rwtxt.js") {
-		b, _ := Asset("rwtxt.js")
-		w.Header().Set("Content-Type", "text/javascript")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "normalize.css") {
-		b, _ := Asset("normalize.css")
-		w.Header().Set("Content-Type", "text/css")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "dropzone.css") {
-		b, _ := Asset("dropzone.css")
-		w.Header().Set("Content-Type", "text/css")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "rwtxt.css") {
-		b, _ := Asset("rwtxt.css")
-		w.Header().Set("Content-Type", "text/css")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "prism.css") {
-		b, _ := Asset("prism.css")
-		w.Header().Set("Content-Type", "text/css")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "dropzone.js") {
-		b, _ := Asset("dropzone.js")
-		w.Header().Set("Content-Type", "text/javascript")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "prism.js") {
-		b, _ := Asset("prism.js")
-		w.Header().Set("Content-Type", "text/javascript")
-		w.Write(b)
-	} else if strings.HasSuffix(page, "logo.png") {
-		b, _ := Asset("logo.png")
-		w.Header().Set("Content-Type", "image/png")
+	log.Debugf("static: [%s]", page)
+	if strings.HasPrefix(page, "/static") {
+		page = "assets/" + strings.TrimPrefix(page, "/static/")
+		log.Debug(page + ".gz")
+		b, _ := Asset(page + ".gz")
+		if strings.Contains(page, ".js") {
+			w.Header().Set("Content-Type", "text/javascript")
+		} else if strings.Contains(page, ".css") {
+			w.Header().Set("Content-Type", "text/css")
+		} else if strings.Contains(page, ".png") {
+			w.Header().Set("Content-Type", "image/png")
+		}
 		w.Write(b)
 	}
+
 	return
 }
 
