@@ -14,7 +14,19 @@ import (
 )
 
 func RenderMarkdownToHTML(markdown string) template.HTML {
-	html := string(blackfriday.Run([]byte(markdown)))
+	html := string(blackfriday.Run([]byte(markdown),
+		blackfriday.WithExtensions(
+			blackfriday.Autolink|
+				blackfriday.Strikethrough|
+				blackfriday.SpaceHeadings|
+				blackfriday.BackslashLineBreak|
+				blackfriday.NoIntraEmphasis|
+				blackfriday.Tables|
+				blackfriday.FencedCode|
+				blackfriday.AutoHeadingIDs|
+				blackfriday.Footnotes),
+	))
+
 	p := bluemonday.UGCPolicy()
 	p.AllowAttrs("href").OnElements("a")
 	p.AllowAttrs("class").OnElements("a")
