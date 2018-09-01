@@ -21,8 +21,8 @@ require (
 	github.com/stretchr/testify v1.2.2
 	github.com/tdewolff/minify v2.3.5+incompatible // indirect
 	github.com/tdewolff/parse v2.3.3+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20180820150726-614d502a4dac
+	golang.org/x/crypto v0.0.0-20180830192347-182538f80094
 	golang.org/x/net v0.0.0-20180826012351-8a410e7b638d // indirect
-	golang.org/x/sys v0.0.0-20180828065106-d99a578cf41b // indirect
+	golang.org/x/sys v0.0.0-20180831094639-fa5fdf94c789 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.0
 )

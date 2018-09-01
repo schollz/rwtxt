@@ -239,16 +239,38 @@ func (fs *FileSystem) SaveBlob(id string, name string, blob []byte) (err error) 
 }
 
 // GetBlob will save a blob
-func (fs *FileSystem) GetBlob(id string) (name string, data []byte, err error) {
+func (fs *FileSystem) GetBlob(id string) (name string, data []byte, views int, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	stmt, err := fs.db.Prepare("SELECT name,data FROM blobs WHERE id = ?")
+	stmt, err := fs.db.Prepare("SELECT name,data,views FROM blobs WHERE id = ?")
 	if err != nil {
 		return
 	}
 	defer stmt.Close()
-	err = stmt.QueryRow(id).Scan(&name, &data)
+	err = stmt.QueryRow(id).Scan(&name, &data, &views)
+	if err != nil {
+		return
+	}
+
+	log.Debugf("id :%s, views: %d", id, views)
+
+	// update the views
+	tx, err := fs.db.Begin()
+	if err != nil {
+		return
+	}
+	stmt, err = tx.Prepare("UPDATE blobs SET views=? WHERE id=?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(views+1, id)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+
 	return
 }
 

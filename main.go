@@ -166,7 +166,7 @@ func serve() (err error) {
 	go func() {
 		lastDumped := time.Now()
 		for {
-			time.Sleep(120 * time.Second)
+			time.Sleep(1 * time.Second)
 			lastModified, errGet := fs.LastModified()
 			if errGet != nil {
 				panic(errGet)
@@ -628,7 +628,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 
 func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error) {
 	log.Debug("getting ", id)
-	name, data, err := fs.GetBlob(id)
+	name, data, _, err := fs.GetBlob(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
