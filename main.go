@@ -166,7 +166,7 @@ func serve() (err error) {
 	go func() {
 		lastDumped := time.Now()
 		for {
-			time.Sleep(1 * time.Second)
+			time.Sleep(120 * time.Second)
 			lastModified, errGet := fs.LastModified()
 			if errGet != nil {
 				panic(errGet)
