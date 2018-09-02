@@ -47,8 +47,17 @@
 	{{end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
-		<p>
-		<h2>Read</h2>
+		<h2>Read <small>(most active, <a href="/{{.Domain}}/list">all</a>)</small></h2>
+		<ul>
+			{{range .MostActiveList}}
+			<li>
+				<small>{{.Modified.Format "Mon Jan 2 2006"}}</small>
+				<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}</a>
+			</li>
+			{{end}}
+		</ul>
+		{{ $length := len .Files }}{{ if ge $length 8 }}
+		<h2>Read <small>(most recent)</small></h2>
 		<ul>
 			{{range .Files}}
 			<li>
@@ -57,7 +66,7 @@
 			</li>
 			{{end}}
 		</ul>
-	</p>
+		{{end}}
 	<p>
 			<form action="/{{.Domain}}" method="get">
 				<input type="text" name="q" value="" size="35" placeholder="Search domain...">

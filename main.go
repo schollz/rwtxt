@@ -48,6 +48,7 @@ type TemplateRender struct {
 	Message           string
 	NumResults        int
 	Files             []db.File
+	MostActiveList    []db.File
 	Search            string
 	DomainExists      bool
 	ShowCookieMessage bool
@@ -308,6 +309,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		signedin = false
 	}
 	files, err := fs.GetTopX(domain, 10)
+	mostActiveList, _ := fs.GetTopXMostViews(domain, 10)
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
@@ -320,6 +322,7 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 		RandomUUID:        newFile.ID,
 		SignedIn:          signedin,
 		Files:             files,
+		MostActiveList:    mostActiveList,
 		DomainExists:      domainErr == nil,
 		DomainIsPrivate:   !ispublic && domain != "public",
 		DomainKey:         domainKey,
@@ -776,6 +779,14 @@ Disallow: /`))
 		// domain exists, handle normally
 		return handleMain(w, r, domain, "")
 	} else if domain != "" && page != "" {
+		if page == "list" {
+			files, _ := fs.GetAll(domain)
+			for i := range files {
+				files[i].Data = ""
+				files[i].DataHTML = template.HTML("")
+			}
+			return handleList(w, r, domain, "All", files)
+		}
 		log.Debug("handle view edit")
 		return handleViewEdit(w, r, domain, page)
 	}
