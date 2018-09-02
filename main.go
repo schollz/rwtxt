@@ -701,24 +701,20 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	if len(fields) > 1 {
 		domain = strings.TrimSpace(strings.ToLower(fields[1]))
 	}
+	// check to see if there is a default domain
+	defaultDomain := "public"
+	cookie, cookieErr := r.Cookie("rwtxt-default-domain")
+	if cookieErr == nil {
+		_, _, domainErr := fs.GetDomainFromName(cookie.Value)
+		if domainErr == nil {
+			// domain exists, redirect to it
+			defaultDomain = cookie.Value
+		}
+	}
+
 	if r.URL.Path == "/" {
 		// special path /
-
-		// check to see if there is a default domain
-		cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-		log.Debug(cookie, cookieErr)
-		if cookieErr == nil {
-			_, _, domainErr := fs.GetDomainFromName(cookie.Value)
-			if domainErr == nil {
-				// domain exists, redirect to it
-				log.Debugf("redirecting to /%s", cookie.Value)
-				http.Redirect(w, r, "/"+cookie.Value, 302)
-				return
-			} else {
-				log.Debug(domainErr)
-			}
-		}
-		http.Redirect(w, r, "/public", 302)
+		http.Redirect(w, r, "/"+defaultDomain, 302)
 	} else if r.URL.Path == "/robots.txt" {
 		// special path
 		w.Write([]byte(`User-agent: * 
@@ -747,6 +743,10 @@ Disallow: /`))
 	} else if r.URL.Path == "/upload" {
 		// special path /upload
 		return handleUpload(w, r)
+	} else if domain == "new" {
+		// special path /upload
+		http.Redirect(w, r, "/"+defaultDomain+"/"+createPage(defaultDomain).ID, 302)
+		return
 	} else if strings.HasPrefix(r.URL.Path, "/uploads") {
 		// special path /uploads
 		return handleUploads(w, r, page)
