@@ -140,6 +140,17 @@ func (fs *FileSystem) initializeDB() (err error) {
 		err = errors.Wrap(err, "creating domains table")
 	}
 
+	sqlStmt = `CREATE TABLE IF NOT EXISTS
+	similarities (
+		id INTEGER NOT NULL PRIMARY KEY,
+		domainid INTEGER,
+		similar_domainid INTEGER
+	);`
+	_, err = fs.db.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating similarities table")
+	}
+
 	domainid, _, _, _ := fs.getDomainFromName("public")
 	if domainid == 0 {
 		fs.setDomain("public", "")
