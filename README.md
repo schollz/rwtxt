@@ -13,9 +13,9 @@ alt="Version"></a> </p>
 
 <p align="center">A cms for absolute minimalists</a></p>
 
-**rwtxt.com** is an [open-source](https://github.com/schollz/rwtxt) website where you can store any text online for easy sharing. In more specific terms, it is a content management system (CMS), but for absolute minimalists.
+**rwtxt.com** is an [open-source](https://github.com/schollz/rwtxt) website where you can store any text online for easy sharing. In more specific terms, it is a light-weight and fast content management system (CMS) where you write in Markdown with emphasis on reading - ideal for minimalists.
 
-Previously I made feature-rich CMS for minimalists, [cowyo.com](https://cowyo.com). *rwtxt* integrates a new feature not available previously: you can create personalized and private posts via *domains*.
+*rwtxt* builds off [cowyo.com](https://cowyo.com), a similar app I made previously. In improving with *rwtxt* I aimed to avoid [second-system syndrome](https://en.wikipedia.org/wiki/Second-system_effect), while getting rid of features I never used in cowyo (self-destruction, encryption, locking), while integrating a useful new feature not available previously: you can create  *domains*. A *domain* is basically a personalized namespace where you can write private/public posts that are searchable.
 
 ## Usage 
 
@@ -63,13 +63,6 @@ And then run it!
 ```bash
 $ ./rwtxt
 ```
-
-## Alternatives
-
-This program, *rwtxt* is based off my other writing program [cowyo](https://cowyo.com). However, *cowyo* was actually based off [shrib.com](https://shrib.com). 
-
-If you are looking for other alternative minimalist microblogging / note-jotting programs, also check out [write.as](https://write.as/), [txti.es](http://txti.es/), or [typegram](https://en.tgr.am/).
-
 
 ## Notice
 
