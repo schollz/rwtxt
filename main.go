@@ -165,6 +165,7 @@ func serve() (err error) {
 		log.Error(err)
 		return
 	}
+
 	go func() {
 		lastDumped := time.Now()
 		for {
@@ -853,11 +854,11 @@ func addSimilar(domain string, fileid string) (err error) {
 	ids := []string{}
 	maindocument := ""
 	for _, file := range files {
-		if file.id == fileid {
+		if file.ID == fileid {
 			maindocument = file.Data
 			continue
 		}
-		ids = append(ids, file.id)
+		ids = append(ids, file.ID)
 		documents = append(documents, file.Data)
 	}
 
@@ -866,4 +867,21 @@ func addSimilar(domain string, fileid string) (err error) {
 		return
 	}
 	fmt.Println(ds)
+
+	similarities, err := ds.JaccardSimilarity(maindocument)
+	if err != nil {
+		return
+	}
+
+	if len(similarities) > 5 {
+		similarities = similarities[:5]
+	}
+	similarIds := make([]string, len(similarities))
+	for i, similarity := range similarities {
+		fmt.Println(similarity)
+		similarIds[i] = ids[similarity.Index]
+	}
+
+	err = fs.SetSimilar(fileid, similarIds)
+	return
 }
