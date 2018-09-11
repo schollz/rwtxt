@@ -47,20 +47,14 @@ func New(name string) (fs *FileSystem, err error) {
 	}
 	fs.name = name
 
-	var needToInitialize bool
-	if _, err = os.Stat(fs.name); os.IsNotExist(err) {
-		needToInitialize = true
-	}
 	fs.db, err = sql.Open("sqlite3", fs.name)
 	if err != nil {
 		return
 	}
-	if needToInitialize {
-		err = fs.initializeDB()
-		if err != nil {
-			err = errors.Wrap(err, "could not initialize")
-			return
-		}
+	err = fs.initializeDB()
+	if err != nil {
+		err = errors.Wrap(err, "could not initialize")
+		return
 	}
 
 	return
@@ -87,7 +81,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	// 	_, err = fs.db.Exec(string(s))
 	// 	return err
 	// }
-	sqlStmt := `CREATE TABLE 
+	sqlStmt := `CREATE TABLE IF NOT EXISTS 
 		fs (
 			id TEXT NOT NULL PRIMARY KEY,
 			domainid INTEGER,
@@ -103,14 +97,14 @@ func (fs *FileSystem) initializeDB() (err error) {
 		return
 	}
 
-	sqlStmt = `CREATE VIRTUAL TABLE 
+	sqlStmt = `CREATE VIRTUAL TABLE IF NOT EXISTS 
 		fts USING fts4 (id,data);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating virtual table")
 	}
 
-	sqlStmt = `CREATE TABLE 
+	sqlStmt = `CREATE TABLE IF NOT EXISTS 
 	domains (
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
@@ -122,7 +116,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		err = errors.Wrap(err, "creating domains table")
 	}
 
-	sqlStmt = `CREATE TABLE 
+	sqlStmt = `CREATE TABLE IF NOT EXISTS
 	keys (
 		id INTEGER NOT NULL PRIMARY KEY,
 		domainid INTEGER,
@@ -134,7 +128,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		err = errors.Wrap(err, "creating keys table")
 	}
 
-	sqlStmt = `CREATE TABLE 
+	sqlStmt = `CREATE TABLE IF NOT EXISTS
 	blobs (
 		id TEXT NOT NULL PRIMARY KEY,
 		name TEXT,
@@ -146,13 +140,10 @@ func (fs *FileSystem) initializeDB() (err error) {
 		err = errors.Wrap(err, "creating domains table")
 	}
 
-	err = fs.setDomain("public", "")
-	if err != nil {
-		return
-	}
-	err = fs.UpdateDomain("public", "", true)
-	if err != nil {
-		return
+	domainid, _, _, _ := fs.getDomainFromName("public")
+	if domainid == 0 {
+		fs.setDomain("public", "")
+		fs.UpdateDomain("public", "", true)
 	}
 
 	fs.DumpSQL()
