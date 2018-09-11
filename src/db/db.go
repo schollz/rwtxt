@@ -143,8 +143,8 @@ func (fs *FileSystem) initializeDB() (err error) {
 	sqlStmt = `CREATE TABLE IF NOT EXISTS
 	similarities (
 		id INTEGER NOT NULL PRIMARY KEY,
-		domainid INTEGER,
-		similar_domainid INTEGER
+		fsid TEXT,
+		fsid_similar TEXT
 	);`
 	_, err = fs.db.Exec(sqlStmt)
 	if err != nil {
