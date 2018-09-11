@@ -11,7 +11,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/microcosm-cc/bluemonday v1.0.1
 	github.com/pkg/errors v0.8.0
-	github.com/schollz/documentsimilarity v0.0.0-20180911144411-e949781d9c5a // indirect
+	github.com/schollz/documentsimilarity v0.0.0-20180911144411-e949781d9c5a
 	github.com/schollz/sqlite3dump v1.2.0
 	github.com/schollz/versionedtext v1.0.0
 	github.com/sergi/go-diff v1.0.0 // indirect

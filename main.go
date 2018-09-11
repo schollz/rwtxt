@@ -16,6 +16,7 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
+	"github.com/schollz/documentsimilarity"
 	"github.com/schollz/rwtxt/src/db"
 	"github.com/schollz/rwtxt/src/utils"
 )
@@ -844,4 +845,25 @@ func createPage(domain string) (f db.File) {
 		log.Debug(err)
 	}
 	return
+}
+
+func addSimilar(domain string, fileid string) (err error) {
+	files, err := fs.GetAll(domain)
+	documents := []string{}
+	ids := []string{}
+	maindocument := ""
+	for _, file := range files {
+		if file.id == fileid {
+			maindocument = file.Data
+			continue
+		}
+		ids = append(ids, file.id)
+		documents = append(documents, file.Data)
+	}
+
+	ds, err := documentsimilarity.New(documents)
+	if err != nil {
+		return
+	}
+	fmt.Println(ds)
 }
