@@ -50,6 +50,7 @@ type TemplateRender struct {
 	NumResults        int
 	Files             []db.File
 	MostActiveList    []db.File
+	SimilarFiles      []db.File
 	Search            string
 	DomainExists      bool
 	ShowCookieMessage bool
@@ -577,6 +578,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		return handleMain(w, r, domain, "domain is not public, sign in first")
 	}
 
+	var similarFiles []db.File
 	if havePage {
 		var files []db.File
 		files, err = fs.Get(page, domain)
@@ -588,6 +590,10 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			return handleList(w, r, domain, page, files)
 		} else {
 			f = files[0]
+		}
+		similarFiles, err = fs.GetSimilar(f.ID)
+		if err != nil {
+			log.Error(err)
 		}
 	} else {
 		uuid := utils.UUID()
@@ -626,16 +632,17 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	defer gz.Close()
 	log.Debug(strings.TrimSpace(f.Data))
 	return viewEditTemplate.Execute(gz, TemplateRender{
-		Page:      page,
-		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
-		File:      f,
-		IntroText: template.JS(introText),
-		Title:     f.Slug,
-		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
-		Domain:    domain,
-		DomainKey: domainKey,
-		SignedIn:  signedIn,
-		EditOnly:  strings.TrimSpace(f.Data) == "",
+		Page:         page,
+		Rendered:     utils.RenderMarkdownToHTML(initialMarkdown),
+		File:         f,
+		IntroText:    template.JS(introText),
+		Title:        f.Slug,
+		Rows:         len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
+		Domain:       domain,
+		DomainKey:    domainKey,
+		SignedIn:     signedIn,
+		EditOnly:     strings.TrimSpace(f.Data) == "",
+		SimilarFiles: similarFiles,
 	})
 
 }

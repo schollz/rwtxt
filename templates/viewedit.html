@@ -17,7 +17,9 @@
         <br><br><br>
         Permalink: <a href="/{{.Domain}}/{{.File.ID}}" class="grayed">/{{.Domain}}/{{.File.ID}}</a><br>
         Last modified: {{.File.Modified.Format "Mon Jan 2 3:04pm 2006"}}<br>
-    {{.File.Views}} views</div>
+    {{.File.Views}} views<br>
+        Related: {{ range .SimilarFiles }}<a href="/{{$.Domain}}/{{.ID}}" class="grayed">{{.Slug}}</a> {{end}}
+    </div>
 </div>
 {{ end }}
 <form id="dropzoneForm" action="/upload?domain={{.Domain}}" class="dropzone">

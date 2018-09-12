@@ -817,6 +817,22 @@ func (fs *FileSystem) GetAll(domain string) (files []File, err error) {
 	ORDER BY fs.modified DESC`, domain)
 }
 
+// GetSimilar returns all the files for a given domain
+func (fs *FileSystem) GetSimilar(fileid string) (files []File, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+	return fs.getAllFromPreparedQuery(`
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
+	INNER JOIN fts ON fs.id=fts.id 
+	WHERE 
+		LENGTH(fts.data) > 0
+	AND 
+		fs.id IN (
+			SELECT fsid_similar FROM similar WHERE fsid = ?
+		)
+	ORDER BY fs.modified DESC`, fileid)
+}
+
 // GetTopX returns the info from a file
 func (fs *FileSystem) GetTopX(domain string, num int) (files []File, err error) {
 	fs.Lock()
