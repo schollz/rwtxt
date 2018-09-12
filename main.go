@@ -882,7 +882,6 @@ func addSimilar(domain string, fileid string) (err error) {
 	if err != nil {
 		return
 	}
-	fmt.Println(ds)
 
 	similarities, err := ds.JaccardSimilarity(maindocument)
 	if err != nil {
@@ -894,7 +893,6 @@ func addSimilar(domain string, fileid string) (err error) {
 	}
 	similarIds := make([]string, len(similarities))
 	for i, similarity := range similarities {
-		fmt.Println(similarity)
 		similarIds[i] = ids[similarity.Index]
 	}
 
