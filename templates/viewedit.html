@@ -17,8 +17,9 @@
         <br><br><br>
         Permalink: <a href="/{{.Domain}}/{{.File.ID}}" class="grayed">/{{.Domain}}/{{.File.ID}}</a><br>
         Last modified: {{.File.Modified.Format "Mon Jan 2 3:04pm 2006"}}<br>
-    {{.File.Views}} views<br>
+    {{.File.Views}} views<br>{{ if (eq .Domain "public") }}{{else}}
         Related: {{ range .SimilarFiles }}<a href="/{{$.Domain}}/{{.ID}}" class="grayed">{{.Slug}}</a> {{end}}
+	{{end}}
     </div>
 </div>
 {{ end }}
