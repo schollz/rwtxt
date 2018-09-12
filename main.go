@@ -16,6 +16,7 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
+	"github.com/schollz/documentsimilarity"
 	"github.com/schollz/rwtxt/src/db"
 	"github.com/schollz/rwtxt/src/utils"
 )
@@ -49,6 +50,7 @@ type TemplateRender struct {
 	NumResults        int
 	Files             []db.File
 	MostActiveList    []db.File
+	SimilarFiles      []db.File
 	Search            string
 	DomainExists      bool
 	ShowCookieMessage bool
@@ -164,6 +166,7 @@ func serve() (err error) {
 		log.Error(err)
 		return
 	}
+
 	go func() {
 		lastDumped := time.Now()
 		for {
@@ -452,11 +455,26 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 	defer c.Close()
 	domainChecked := false
 	domainValidated := false
+	var editFile db.File
 	var p Payload
 	for {
 		err := c.ReadJSON(&p)
 		if err != nil {
 			log.Debug("read:", err)
+			if editFile.ID != "" {
+				log.Debugf("saving editing of /%s/%s", editFile.Domain, editFile.ID)
+				err = fs.Save(editFile)
+				log.Debug("saved")
+				if err != nil {
+					log.Error(err)
+				}
+				if editFile.Domain != "public" {
+					err = addSimilar(editFile.Domain, editFile.ID)
+					if err != nil {
+						log.Error(err)
+					}
+				}
+			}
 			break
 		}
 		// log.Debugf("recv: %v", p)
@@ -475,7 +493,6 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 
 		// save it
 		if p.ID != "" && domainValidated {
-			log.Debug("saving")
 			if p.Domain == "" {
 				p.Domain = "public"
 			}
@@ -483,24 +500,19 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			if data == introText {
 				data = ""
 			}
-
-			err = fs.Save(db.File{
+			editFile = db.File{
 				ID:      p.ID,
 				Slug:    p.Slug,
 				Data:    data,
 				Created: time.Now(),
 				Domain:  p.Domain,
-			})
-			log.Debug("saved")
-			if err != nil {
-				log.Error(err)
 			}
-			fs, _ := fs.Get(p.Slug, p.Domain)
+
 			err = c.WriteJSON(Payload{
 				ID:      p.ID,
 				Slug:    p.Slug,
 				Message: "unique_slug",
-				Success: len(fs) < 2,
+				Success: true,
 			})
 			if err != nil {
 				log.Debug("write:", err)
@@ -566,6 +578,7 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		return handleMain(w, r, domain, "domain is not public, sign in first")
 	}
 
+	var similarFiles []db.File
 	if havePage {
 		var files []db.File
 		files, err = fs.Get(page, domain)
@@ -577,6 +590,10 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 			return handleList(w, r, domain, page, files)
 		} else {
 			f = files[0]
+		}
+		similarFiles, err = fs.GetSimilar(f.ID)
+		if err != nil {
+			log.Error(err)
 		}
 	} else {
 		uuid := utils.UUID()
@@ -615,16 +632,17 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 	defer gz.Close()
 	log.Debug(strings.TrimSpace(f.Data))
 	return viewEditTemplate.Execute(gz, TemplateRender{
-		Page:      page,
-		Rendered:  utils.RenderMarkdownToHTML(initialMarkdown),
-		File:      f,
-		IntroText: template.JS(introText),
-		Title:     f.Slug,
-		Rows:      len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
-		Domain:    domain,
-		DomainKey: domainKey,
-		SignedIn:  signedIn,
-		EditOnly:  strings.TrimSpace(f.Data) == "",
+		Page:         page,
+		Rendered:     utils.RenderMarkdownToHTML(initialMarkdown),
+		File:         f,
+		IntroText:    template.JS(introText),
+		Title:        f.Slug,
+		Rows:         len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
+		Domain:       domain,
+		DomainKey:    domainKey,
+		SignedIn:     signedIn,
+		EditOnly:     strings.TrimSpace(f.Data) == "",
+		SimilarFiles: similarFiles,
 	})
 
 }
@@ -843,5 +861,43 @@ func createPage(domain string) (f db.File) {
 	if err != nil {
 		log.Debug(err)
 	}
+	return
+}
+
+func addSimilar(domain string, fileid string) (err error) {
+	files, err := fs.GetAll(domain)
+	documents := []string{}
+	ids := []string{}
+	maindocument := ""
+	for _, file := range files {
+		if file.ID == fileid {
+			maindocument = file.Data
+			continue
+		}
+		ids = append(ids, file.ID)
+		documents = append(documents, file.Data)
+	}
+
+	ds, err := documentsimilarity.New(documents)
+	if err != nil {
+		return
+	}
+	fmt.Println(ds)
+
+	similarities, err := ds.JaccardSimilarity(maindocument)
+	if err != nil {
+		return
+	}
+
+	if len(similarities) > 5 {
+		similarities = similarities[:5]
+	}
+	similarIds := make([]string, len(similarities))
+	for i, similarity := range similarities {
+		fmt.Println(similarity)
+		similarIds[i] = ids[similarity.Index]
+	}
+
+	err = fs.SetSimilar(fileid, similarIds)
 	return
 }

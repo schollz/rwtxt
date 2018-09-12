@@ -141,7 +141,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	}
 
 	sqlStmt = `CREATE TABLE IF NOT EXISTS
-	similarities (
+	similar (
 		id INTEGER NOT NULL PRIMARY KEY,
 		fsid TEXT,
 		fsid_similar TEXT
@@ -754,7 +754,56 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPass
 	return
 }
 
-// GetTopX returns the info from a file
+func (fs *FileSystem) SetSimilar(id string, similarids []string) (err error) {
+	// first purge the database of previous similarities
+	stmt, err := fs.db.Prepare(`DELETE FROM similar WHERE fsid=?;`)
+	if err != nil {
+		return
+	}
+	_, err = stmt.Exec(id)
+	stmt.Close()
+	if err != nil {
+		return
+	}
+
+	for _, similarid := range similarids {
+		// inset new similarities
+		tx, err := fs.db.Begin()
+		if err != nil {
+			return errors.Wrap(err, "begin setsmiilar")
+		}
+		stmt, err := tx.Prepare(`
+	INSERT OR REPLACE INTO
+		similar
+	(
+		fsid,
+		fsid_similar
+	) 
+		VALUES 	
+	(
+		?,
+		?
+	)`)
+		if err != nil {
+			return errors.Wrap(err, "stmt setsimilar")
+		}
+		_, err = stmt.Exec(
+			id, similarid,
+		)
+		if err != nil {
+			return errors.Wrap(err, "exec setsimilar")
+		}
+		defer stmt.Close()
+		err = tx.Commit()
+		if err != nil {
+			return errors.Wrap(err, "commit setsimilar")
+		}
+	}
+
+	return
+}
+
+// GetAll returns all the files for a given domain
 func (fs *FileSystem) GetAll(domain string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
@@ -766,6 +815,22 @@ func (fs *FileSystem) GetAll(domain string) (files []File, err error) {
 		domains.name = ?
 		AND LENGTH(fts.data) > 0
 	ORDER BY fs.modified DESC`, domain)
+}
+
+// GetSimilar returns all the files for a given domain
+func (fs *FileSystem) GetSimilar(fileid string) (files []File, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+	return fs.getAllFromPreparedQuery(`
+	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
+	INNER JOIN fts ON fs.id=fts.id 
+	WHERE 
+		LENGTH(fts.data) > 0
+	AND 
+		fs.id IN (
+			SELECT fsid_similar FROM similar WHERE fsid = ?
+		)
+	ORDER BY fs.modified DESC`, fileid)
 }
 
 // GetTopX returns the info from a file
