@@ -454,11 +454,26 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 	defer c.Close()
 	domainChecked := false
 	domainValidated := false
+	var editFile db.File
 	var p Payload
 	for {
 		err := c.ReadJSON(&p)
 		if err != nil {
 			log.Debug("read:", err)
+			if editFile.ID != "" {
+				log.Debugf("saving editing of /%s/%s", editFile.Domain, editFile.ID)
+				err = fs.Save(editFile)
+				log.Debug("saved")
+				if err != nil {
+					log.Error(err)
+				}
+				if editFile.Domain != "public" {
+					err = addSimilar(editFile.Domain, editFile.ID)
+					if err != nil {
+						log.Error(err)
+					}
+				}
+			}
 			break
 		}
 		// log.Debugf("recv: %v", p)
@@ -477,7 +492,6 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 
 		// save it
 		if p.ID != "" && domainValidated {
-			log.Debug("saving")
 			if p.Domain == "" {
 				p.Domain = "public"
 			}
@@ -485,24 +499,19 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			if data == introText {
 				data = ""
 			}
-
-			err = fs.Save(db.File{
+			editFile = db.File{
 				ID:      p.ID,
 				Slug:    p.Slug,
 				Data:    data,
 				Created: time.Now(),
 				Domain:  p.Domain,
-			})
-			log.Debug("saved")
-			if err != nil {
-				log.Error(err)
 			}
-			fs, _ := fs.Get(p.Slug, p.Domain)
+
 			err = c.WriteJSON(Payload{
 				ID:      p.ID,
 				Slug:    p.Slug,
 				Message: "unique_slug",
-				Success: len(fs) < 2,
+				Success: true,
 			})
 			if err != nil {
 				log.Debug("write:", err)
