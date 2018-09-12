@@ -463,11 +463,6 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 			log.Debug("read:", err)
 			if editFile.ID != "" {
 				log.Debugf("saving editing of /%s/%s", editFile.Domain, editFile.ID)
-				err = fs.Save(editFile)
-				log.Debug("saved")
-				if err != nil {
-					log.Error(err)
-				}
 				if editFile.Domain != "public" {
 					err = addSimilar(editFile.Domain, editFile.ID)
 					if err != nil {
@@ -507,12 +502,17 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 				Created: time.Now(),
 				Domain:  p.Domain,
 			}
+			err = fs.Save(editFile)
+			if err != nil {
+				log.Error(err)
+			}
+			fs, _ := fs.Get(p.Slug, p.Domain)
 
 			err = c.WriteJSON(Payload{
 				ID:      p.ID,
 				Slug:    p.Slug,
 				Message: "unique_slug",
-				Success: true,
+				Success: len(fs) < 2,
 			})
 			if err != nil {
 				log.Debug("write:", err)
