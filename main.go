@@ -271,23 +271,26 @@ func setDomainListCookie(w http.ResponseWriter, r *http.Request, domainMap map[s
 	sort.Strings(domainList)
 	log.Debug(domainList)
 	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookieDomain := http.Cookie{Name: "rwtxt-domain-list", Value: strings.Join(domainList, ","), Expires: expiration}
+	cookieDomain := http.Cookie{Name: "rwtxt-domain", Value: strings.Join(domainList, ","), Expires: expiration}
 	http.SetCookie(w, &cookieDomain)
 	return
 }
-func getDomainListCookie(w http.ResponseWriter, r *http.Request) map[string]bool {
-	domainMap := make(map[string]bool)
-	cookie, cookieErr := r.Cookie("rwtxt-domain-list")
+
+func getDomainListCookie(w http.ResponseWriter, r *http.Request) (domains []string) {
+	cookie, cookieErr := r.Cookie("rwtxt-domains")
 	if cookieErr == nil {
 		if strings.Contains(cookie.Value, ",") {
-			for _, d := range strings.Split(cookie.Value, ",") {
-				domainMap[d] = true
+			for _, key := range strings.Split(cookie.Value, ",") {
+				domainName, domainErr := fs.CheckKey(key)
+				if domainErr == nil && domainName != "" {
+					domains = append(domains, domainName)
+				}
 			}
 		}
 	}
-	domainMap["public"] = true
-	log.Debugf("got domainMap: %+v", domainMap)
-	return domainMap
+	domains = append(domains, "public")
+	log.Debugf("logged in domains: %+v", domains)
+	return
 }
 
 func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
