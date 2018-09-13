@@ -478,7 +478,7 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 		return
 	}
 	defer stmt.Close()
-	key = utils.Hash(time.Now().UTC().String(), utils.UUID())
+	key = utils.UUID()
 	_, err = stmt.Exec(domainid, key, time.Now().UTC())
 	if err != nil {
 		return
