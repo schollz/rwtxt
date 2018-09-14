@@ -541,13 +541,44 @@ func (fs *FileSystem) UpdateViews(f File) (err error) {
 	return
 }
 
-// CheckKey checks that it is a valid key for a domain
-func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
-	// first check if it is a domain
+// CheckKeys checks that it is a valid key for a domain
+func (fs *FileSystem) CheckKeys(keys []string) (domains []string, validKeys []string, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	stmt, err := fs.db.Prepare("SELECT domains.name FROM keys INNER JOIN domains ON keys.domainid=domains.id WHERE keys.key=?")
+	domains = make([]string, len(keys))
+	validKeys = make([]string, len(keys))
+	i := 0
+	for _, key := range keys {
+		domain, err := fs.checkKey(key)
+		if err != nil || domain == "" {
+			continue
+		}
+		domains[i] = domain
+		validKeys[i] = key
+		i++
+	}
+	return
+}
+
+// CheckKey checks that it is a valid key for a domain
+func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+	return fs.checkKey(key)
+}
+
+func (fs *FileSystem) checkKey(key string) (domain string, err error) {
+	stmt, err := fs.db.Prepare(`
+	SELECT 
+		domains.name
+	FROM keys 
+	
+	INNER JOIN domains 
+		ON keys.domainid=domains.id 
+
+	WHERE
+		keys.key=?`)
 	if err != nil {
 		return
 	}
@@ -561,19 +592,28 @@ func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
 		return
 	}
 
-	// update the last used
+	return
+}
+
+// UpdateKeys will update its last use
+func (fs *FileSystem) UpdateKeys(keys []string) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
 	tx, err := fs.db.Begin()
 	if err != nil {
 		return
 	}
-	stmt, err = tx.Prepare("UPDATE keys SET lastused=? WHERE key=?")
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	_, err = stmt.Exec(time.Now().UTC(), key)
-	if err != nil {
-		return
+	for _, key := range keys {
+		stmt, errUpdate := tx.Prepare("UPDATE keys SET lastused=? WHERE key=?")
+		if errUpdate != nil {
+			err = errUpdate
+			return
+		}
+		defer stmt.Close()
+		_, err = stmt.Exec(time.Now().UTC(), key)
+		if err != nil {
+			return
+		}
 	}
 	err = tx.Commit()
 	return
