@@ -218,6 +218,11 @@ func (tr *TemplateRender) handleSearch(w http.ResponseWriter, r *http.Request, d
 }
 
 func (tr *TemplateRender) handleList(w http.ResponseWriter, r *http.Request, query string, files []db.File) (err error) {
+	_, ispublic, _ := fs.GetDomainFromName(tr.Domain)
+	if !tr.SignedIn && !ispublic {
+		return tr.handleMain(w, r, "need to log in to list")
+	}
+
 	// show the list page
 	tr.Title = query + " pages"
 	tr.Files = files
