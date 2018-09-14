@@ -757,10 +757,10 @@ Disallow: /`))
 		// special path /uploads
 		return tr.handleUploads(w, r, tr.Page)
 	} else if tr.Domain != "" && tr.Page == "" {
-		if tr.Domain == "public" {
-			return tr.handleMain(w, r, "can't search public")
-		}
 		if r.URL.Query().Get("q") != "" {
+			if tr.Domain == "public" {
+				return tr.handleMain(w, r, "can't search public")
+			}
 			return tr.handleSearch(w, r, tr.Domain, r.URL.Query().Get("q"))
 		}
 		// domain exists, handle normally
