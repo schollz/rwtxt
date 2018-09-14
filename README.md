@@ -11,11 +11,13 @@ href="https://github.com/schollz/rwtxt/releases/latest"><img
 src="https://img.shields.io/badge/version-1.1.0-brightgreen.svg?style=flat-square"
 alt="Version"></a> </p>
 
-<p align="center">A cms for absolute minimalists</a></p>
+<p align="center">A cms for absolute minimalists. Try it at <a href="https://rwtxt.com/public">rwtxt.com</a>.</p>
 
-**rwtxt.com** is an [open-source](https://github.com/schollz/rwtxt) website where you can store any text online for easy sharing. In more specific terms, it is a light-weight and fast content management system (CMS) where you write in Markdown with emphasis on reading - ideal for minimalists.
+*rwtxt* is an [open-source](https://github.com/schollz/rwtxt) website where you can store any text online for easy sharing and quick recall. In more specific terms, it is a light-weight and fast content management system (CMS) where you write in Markdown with emphasis on reading.
 
-*rwtxt* builds off [cowyo.com](https://cowyo.com), a similar app I made previously. In improving with *rwtxt* I aimed to avoid [second-system syndrome](https://en.wikipedia.org/wiki/Second-system_effect), while getting rid of features I never used in cowyo (self-destruction, encryption, locking), while integrating a useful new feature not available previously: you can create  *domains*. A *domain* is basically a personalized namespace where you can write private/public posts that are searchable.
+*rwtxt* builds off [cowyo](https://cowyo.com), a similar app I made previously. In improving with *rwtxt* I aimed to avoid [second-system syndrome](https://en.wikipedia.org/wiki/Second-system_effect): I got rid of features I never used in cowyo (self-destruction, encryption, locking), while integrating a useful new feature not available previously: you can create  *domains*. A *domain* is basically a personalized namespace where you can write private/public posts that are searchable. I personally use *rwtxt* to collect and jot notes for work, personal, coding - each which has its own searchable and indexed domain.
+
+*rwtxt* is backed by a single [sqlite3](https://www.sqlite.org/index.html) database, so its portable and very easy to backup. Its written in Go and all the assets are bundled so you can just download a single binary and start writing. You can also try the online version: [rwtxt.com](https://rwtxt.com/public).
 
 ## Usage 
 
@@ -45,7 +47,11 @@ console.log("hello, world");
 
 ## Install
 
-You can easily install and run *rwtxt* on your own computer. First make sure to [install Go](https://golang.org/dl/). Then clone the repo:
+You can easily install and run *rwtxt* on your own computer.
+
+You can download a binary for the [latest release](https://github.com/schollz/rwtxt/releases/latest). 
+
+Or you can install from source. First make sure to [install Go](https://golang.org/dl/). Then clone the repo:
 
 
 ```bash
