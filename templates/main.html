@@ -74,7 +74,7 @@
 			</form>
 	</p>
 	{{end}}
-	{{ if .SignedIn}}
+	{{ if and (.SignedIn) (ne .Domain "public")}}
 	<p>
 	<h2>Options</h2>
 		  <form action="/update" method="post">
