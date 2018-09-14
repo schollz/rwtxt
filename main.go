@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
@@ -235,76 +234,84 @@ func handleList(w http.ResponseWriter, r *http.Request, domain string, query str
 }
 
 func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin bool, domainkey string, defaultDomain string, domainList []string) {
-	// check for default domain
-	defaultDomainCookie, cookieErr := r.Cookie("rwtxt-default-domain")
-	if cookieErr == nil {
-		// domain exists, handle normally
-		defaultDomain = defaultDomainCookie.Value
+	var domainKeys map[string]string
+	domainKeys, defaultDomain = getDomainListCookie(w, r)
+	domainList = make([]string, len(domainKeys))
+	i := 0
+	for domainName := range domainKeys {
+		domainList[i] = domainName
+		i++
+		if domain == domainName {
+			signedin = true
+			domainkey = domainKeys[domainName]
+		}
 	}
-	if domain == "" {
-		domain = "public"
-	}
-
-	// get domain key
-	cookie, cookieErr := r.Cookie(domain)
-	if cookieErr == nil {
-		log.Debugf("got cookie %+v", cookie.Value)
-		domainkey = cookie.Value
-		signedin = true
-	}
-
-	// if signed in add it to the list
-	domainMap := getDomainListCookie(w, r)
-	if signedin {
-		domainMap[domain] = true
-	}
-	domainList = setDomainListCookie(w, r, domainMap)
 	return
 }
 
-func setDomainListCookie(w http.ResponseWriter, r *http.Request, domainMap map[string]bool) (domainList []string) {
-	domainList = []string{}
-	for d := range domainMap {
-		domainList = append(domainList, d)
+func updateDomainCookie(w http.ResponseWriter, r *http.Request, domain string, key string) (cookie http.Cookie) {
+	// get current keys
+	domainKeys, _ := getDomainListCookie(w, r)
+	delete(domainKeys, "public")
+	log.Debugf("previous domain keys: %+v", domainKeys)
+	domainKeys[domain] = key
+	log.Debugf("updated domain keys: %+v", domainKeys)
+
+	// add the current one as default
+	domainKeyList := []string{key}
+
+	// add the others
+	for domainName := range domainKeys {
+		if domainName != domain {
+			domainKeyList = append(domainKeyList, domainKeys[domainName])
+		}
 	}
-	log.Debugf("got domainList: %+v", domainList)
-	sort.Strings(domainList)
-	log.Debug(domainList)
-	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookieDomain := http.Cookie{Name: "rwtxt-domain", Value: strings.Join(domainList, ","), Expires: expiration}
-	http.SetCookie(w, &cookieDomain)
-	return
+
+	log.Debugf("setting new list: %+v", domainKeyList)
+	// return the new cookie
+	return http.Cookie{
+		Name:    "rwtxt-domains",
+		Value:   strings.Join(domainKeyList, ","),
+		Expires: time.Now().Add(365 * 24 * time.Hour),
+	}
 }
 
-func getDomainListCookie(w http.ResponseWriter, r *http.Request) (domains []string) {
+func getDomainListCookie(w http.ResponseWriter, r *http.Request) (domainKeys map[string]string, defaultDomain string) {
+	domainKeys = make(map[string]string)
 	cookie, cookieErr := r.Cookie("rwtxt-domains")
 	if cookieErr == nil {
-		if strings.Contains(cookie.Value, ",") {
-			for _, key := range strings.Split(cookie.Value, ",") {
-				domainName, domainErr := fs.CheckKey(key)
-				if domainErr == nil && domainName != "" {
-					domains = append(domains, domainName)
+		log.Debugf("got cookie: %s", cookie.Value)
+		for _, key := range strings.Split(cookie.Value, ",") {
+			log.Debugf("checking key: %s", key)
+			domainName, domainErr := fs.CheckKey(key)
+			if domainErr == nil && domainName != "" {
+				if defaultDomain == "" {
+					defaultDomain = domainName
 				}
+				domainKeys[domainName] = key
 			}
 		}
 	}
-	domains = append(domains, "public")
-	log.Debugf("logged in domains: %+v", domains)
+	domainKeys["public"] = ""
+	if defaultDomain == "" {
+		defaultDomain = "public"
+	}
+	log.Debugf("logged in domains: %+v", domainKeys)
 	return
 }
 
 func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
 	// check if first time user
-	signedin, domainKey, defaultDomain, domainList := isSignedIn(w, r, domain)
-	log.Debug(signedin, domainKey, defaultDomain)
+	signedin, domainKey, _, domainList := isSignedIn(w, r, domain)
+	log.Debugf("domain list: %+v", domainList)
+
 	// set the default domain if it doesn't exist
-	var showCookieMessage bool
-	if defaultDomain == "" {
-		expiration := time.Now().Add(365 * 24 * time.Hour)
-		cookie := http.Cookie{Name: "rwtxt-default-domain", Value: "public", Expires: expiration}
+	if signedin {
+		cookie := updateDomainCookie(w, r, domain, domainKey)
 		http.SetCookie(w, &cookie)
-		showCookieMessage = true
 	}
+
+	var showCookieMessage bool
 
 	// create a page to write to
 	newFile := createPage(domain)
@@ -341,41 +348,17 @@ func handleMain(w http.ResponseWriter, r *http.Request, domain string, message s
 func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("d")))
 
-	// delete default domain cookie
-	_, err = r.Cookie("rwtxt-default-domain")
+	// delete all cookies
+	_, err = r.Cookie("rwtxt-domains")
 	if err == nil {
 		c := &http.Cookie{
-			Name:     "rwtxt-default-domain",
+			Name:     "rwtxt-domains",
 			Value:    "",
 			Path:     "/",
 			Expires:  time.Unix(0, 0),
 			HttpOnly: true,
 		}
 		http.SetCookie(w, c)
-	}
-
-	// delete domain from list
-	domainMap := getDomainListCookie(w, r)
-	delete(domainMap, domain)
-	log.Debug(domainMap, domain)
-	setDomainListCookie(w, r, domainMap)
-
-	// delete domain password cookie
-	cookie, err := r.Cookie(domain)
-	if err == nil {
-		err = fs.DeleteKey(cookie.Value)
-		if err != nil {
-			log.Error(err)
-		}
-		c := &http.Cookie{
-			Name:     domain,
-			Value:    "",
-			Path:     "/",
-			Expires:  time.Unix(0, 0),
-			HttpOnly: true,
-		}
-		http.SetCookie(w, c)
-		http.Redirect(w, r, "/", 302)
 	}
 
 	return handleMain(w, r, domain, "You are not logged in.")
@@ -410,12 +393,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
 
 	log.Debugf("new key: %s", key)
 	// set domain password
-	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookie := http.Cookie{Name: domain, Value: key, Expires: expiration}
+	cookie := updateDomainCookie(w, r, domain, key)
 	http.SetCookie(w, &cookie)
-	// set domain default
-	cookie2 := http.Cookie{Name: "rwtxt-default-domain", Value: domain, Expires: expiration}
-	http.SetCookie(w, &cookie2)
 	http.Redirect(w, r, "/"+domain, 302)
 	return nil
 }
@@ -725,16 +704,9 @@ func handle(w http.ResponseWriter, r *http.Request) (err error) {
 	if len(fields) > 1 {
 		domain = strings.TrimSpace(strings.ToLower(fields[1]))
 	}
-	// check to see if there is a default domain
-	defaultDomain := "public"
-	cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-	if cookieErr == nil {
-		_, _, domainErr := fs.GetDomainFromName(cookie.Value)
-		if domainErr == nil {
-			// domain exists, redirect to it
-			defaultDomain = cookie.Value
-		}
-	}
+
+	// get default domain
+	_, defaultDomain := getDomainListCookie(w, r)
 
 	if r.URL.Path == "/" {
 		// special path /
@@ -778,24 +750,6 @@ Disallow: /`))
 		if r.URL.Query().Get("q") != "" {
 			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
 		}
-
-		// // check to see if domain exists
-		// cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-		// _, _, domainErr := fs.GetDomainFromName(domain)
-		// if domainErr != nil && cookieErr == nil {
-		// 	log.Debug(domainErr)
-		// 	// we are trying to goto a page that doesn't exist as a domain
-		// 	// automatically create a new page for editing in the default domain
-		// 	http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
-		// 	return
-		// }
-
-		// // check to see if page exists in public domain and redirect to it
-		// fs, _ := fs.Get(domain, "public")
-		// if len(fs) > 0 {
-		// 	http.Redirect(w, r, "/public/"+domain, 302)
-		// 	return
-		// }
 
 		// domain exists, handle normally
 		return handleMain(w, r, domain, "")
