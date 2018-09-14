@@ -752,6 +752,9 @@ Disallow: /`))
 		// special path /uploads
 		return tr.handleUploads(w, r, tr.Page)
 	} else if tr.Domain != "" && tr.Page == "" {
+		if tr.Domain == "public" {
+			return tr.handleMain(w, r, "can't search public")
+		}
 		if r.URL.Query().Get("q") != "" {
 			return tr.handleSearch(w, r, tr.Domain, r.URL.Query().Get("q"))
 		}
@@ -759,6 +762,10 @@ Disallow: /`))
 		return tr.handleMain(w, r, "")
 	} else if tr.Domain != "" && tr.Page != "" {
 		if tr.Page == "list" {
+			if tr.Domain == "public" {
+				return tr.handleMain(w, r, "can't list public")
+			}
+
 			files, _ := fs.GetAll(tr.Domain)
 			for i := range files {
 				files[i].Data = ""
