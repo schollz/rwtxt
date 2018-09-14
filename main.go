@@ -45,6 +45,8 @@ type TemplateRender struct {
 	DomainIsPrivate   bool
 	DomainValue       template.HTMLAttr
 	DomainList        []string
+	DomainKeys        map[string]string
+	DefaultDomain     string
 	SignedIn          bool
 	Message           string
 	NumResults        int
@@ -203,146 +205,167 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	log.Infof("%v %v %v %s", r.RemoteAddr, r.Method, r.URL.Path, time.Since(t))
 }
 
-func handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
+func (tr *TemplateRender) handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
 	_, ispublic, _ := fs.GetDomainFromName(domain)
-	signedin, _, _, _ := isSignedIn(w, r, domain)
-	if !signedin && !ispublic {
-		return handleMain(w, r, domain, "need to log in to search")
+	if !tr.SignedIn && !ispublic {
+		return tr.handleMain(w, r, "need to log in to search")
 	}
-	files, errGet := fs.Find(query, domain)
+	files, errGet := fs.Find(query, tr.Domain)
 	if errGet != nil {
 		return errGet
 	}
-	return handleList(w, r, domain, query, files)
+	return tr.handleList(w, r, query, files)
 }
 
-func handleList(w http.ResponseWriter, r *http.Request, domain string, query string, files []db.File) (err error) {
+func (tr *TemplateRender) handleList(w http.ResponseWriter, r *http.Request, query string, files []db.File) (err error) {
 	// show the list page
-	signedin, _, _, _ := isSignedIn(w, r, domain)
+	tr.Title = query + " pages"
+	tr.Files = files
+	tr.NumResults = len(files)
+	tr.Search = query
+	tr.RandomUUID = utils.UUID()
+
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
-	return listTemplate.Execute(gz, TemplateRender{
-		Title:      query + " pages",
-		Domain:     domain,
-		Files:      files,
-		NumResults: len(files),
-		Search:     query,
-		RandomUUID: utils.UUID(),
-		SignedIn:   signedin,
-	})
+	return listTemplate.Execute(gz, tr)
 }
 
-func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin bool, domainkey string, defaultDomain string, domainList []string) {
-	// check for default domain
-	defaultDomainCookie, cookieErr := r.Cookie("rwtxt-default-domain")
-	if cookieErr == nil {
-		// domain exists, handle normally
-		defaultDomain = defaultDomainCookie.Value
+func isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin bool, domainkey string, defaultDomain string, domainList []string, domainKeys map[string]string) {
+	domainKeys, defaultDomain = getDomainListCookie(w, r)
+	domainList = make([]string, len(domainKeys))
+	i := 0
+	for domainName := range domainKeys {
+		domainList[i] = domainName
+		i++
+		if domain == domainName {
+			signedin = true
+			domainkey = domainKeys[domainName]
+		}
 	}
-	if domain == "" {
-		domain = "public"
-	}
-
-	// get domain key
-	cookie, cookieErr := r.Cookie(domain)
-	if cookieErr == nil {
-		log.Debugf("got cookie %+v", cookie.Value)
-		domainkey = cookie.Value
-		signedin = true
-	}
-
-	// if signed in add it to the list
-	domainMap := getDomainListCookie(w, r)
-	if signedin {
-		domainMap[domain] = true
-	}
-	domainList = setDomainListCookie(w, r, domainMap)
-	return
-}
-
-func setDomainListCookie(w http.ResponseWriter, r *http.Request, domainMap map[string]bool) (domainList []string) {
-	domainList = []string{}
-	for d := range domainMap {
-		domainList = append(domainList, d)
-	}
-	log.Debugf("got domainList: %+v", domainList)
 	sort.Strings(domainList)
-	log.Debug(domainList)
-	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookieDomain := http.Cookie{Name: "rwtxt-domain-list", Value: strings.Join(domainList, ","), Expires: expiration}
-	http.SetCookie(w, &cookieDomain)
 	return
 }
-func getDomainListCookie(w http.ResponseWriter, r *http.Request) map[string]bool {
-	domainMap := make(map[string]bool)
-	cookie, cookieErr := r.Cookie("rwtxt-domain-list")
+
+func (tr TemplateRender) updateDomainCookie(w http.ResponseWriter, r *http.Request) (cookie http.Cookie) {
+	delete(tr.DomainKeys, "public")
+	tr.DomainKeys[tr.Domain] = tr.DomainKey
+	log.Debugf("updated domain keys: %+v", tr.DomainKeys)
+
+	// add the current one as default
+	domainKeyList := []string{tr.DomainKey}
+
+	// add the others
+	for domainName := range tr.DomainKeys {
+		if domainName != tr.Domain {
+			domainKeyList = append(domainKeyList, tr.DomainKeys[domainName])
+		}
+	}
+
+	log.Debugf("setting new list: %+v", domainKeyList)
+	// return the new cookie
+	return http.Cookie{
+		Name:    "rwtxt-domains",
+		Value:   strings.Join(domainKeyList, ","),
+		Expires: time.Now().Add(365 * 24 * time.Hour),
+	}
+}
+
+func getDomainListCookie(w http.ResponseWriter, r *http.Request) (domainKeys map[string]string, defaultDomain string) {
+	startTime := time.Now()
+	domainKeys = make(map[string]string)
+	cookie, cookieErr := r.Cookie("rwtxt-domains")
+	keysToUpdate := []string{}
 	if cookieErr == nil {
-		if strings.Contains(cookie.Value, ",") {
-			for _, d := range strings.Split(cookie.Value, ",") {
-				domainMap[d] = true
+		log.Debugf("got cookie: %s", cookie.Value)
+		for _, key := range strings.Split(cookie.Value, ",") {
+			startTime2 := time.Now()
+			domainName, domainErr := fs.CheckKey(key)
+			log.Debugf("checked key: %s [%s]", key, time.Since(startTime2))
+			if domainErr == nil && domainName != "" {
+				if defaultDomain == "" {
+					defaultDomain = domainName
+				}
+				domainKeys[domainName] = key
+				keysToUpdate = append(keysToUpdate, key)
 			}
 		}
 	}
-	domainMap["public"] = true
-	log.Debugf("got domainMap: %+v", domainMap)
-	return domainMap
+	domainKeys["public"] = ""
+	if defaultDomain == "" {
+		defaultDomain = "public"
+	}
+	log.Debugf("logged in domains: %+v [%s]", domainKeys, time.Since(startTime))
+	go func() {
+		if err := fs.UpdateKeys(keysToUpdate); err != nil {
+			log.Debug(err)
+		}
+	}()
+	return
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request, domain string, message string) (err error) {
-	// check if first time user
-	signedin, domainKey, defaultDomain, domainList := isSignedIn(w, r, domain)
-	log.Debug(signedin, domainKey, defaultDomain)
+func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, message string) (err error) {
+
 	// set the default domain if it doesn't exist
-	var showCookieMessage bool
-	if defaultDomain == "" {
-		expiration := time.Now().Add(365 * 24 * time.Hour)
-		cookie := http.Cookie{Name: "rwtxt-default-domain", Value: "public", Expires: expiration}
+	if tr.SignedIn && tr.DefaultDomain != tr.Domain {
+		cookie := tr.updateDomainCookie(w, r)
 		http.SetCookie(w, &cookie)
-		showCookieMessage = true
 	}
 
 	// create a page to write to
-	newFile := createPage(domain)
+	newFile := db.File{
+		ID:       utils.UUID(),
+		Created:  time.Now(),
+		Domain:   tr.Domain,
+		Modified: time.Now(),
+	}
+	defer func() {
+		go func() {
+			// premediate the page
+			err := fs.Save(newFile)
+			if err != nil {
+				log.Debug(err)
+			}
+		}()
+	}()
+	tr.RandomUUID = newFile.ID
 
-	_, ispublic, domainErr := fs.GetDomainFromName(domain)
+	// delete this
+	_, ispublic, domainErr := fs.GetDomainFromName(tr.Domain)
+	signedin := tr.SignedIn
 	if domainErr != nil {
 		// domain does NOT exist
 		signedin = false
 	}
-	files, err := fs.GetTopX(domain, 10)
-	mostActiveList, _ := fs.GetTopXMostViews(domain, 10)
+	tr.SignedIn = signedin
+	tr.DomainIsPrivate = !ispublic && tr.Domain != "public"
+	tr.DomainExists = domainErr == nil
+	tr.Files, err = fs.GetTopX(tr.Domain, 10)
+	if err != nil {
+		log.Debug(err)
+	}
+
+	tr.MostActiveList, _ = fs.GetTopXMostViews(tr.Domain, 10)
+	tr.Title = "rwtxt"
+	tr.Message = message
+	tr.DomainValue = template.HTMLAttr(`value="` + tr.Domain + `"`)
+
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
-	log.Debug(signedin)
-	return mainTemplate.Execute(gz, TemplateRender{
-		Title:             "rwtxt",
-		Message:           message,
-		Domain:            domain,
-		RandomUUID:        newFile.ID,
-		SignedIn:          signedin,
-		Files:             files,
-		MostActiveList:    mostActiveList,
-		DomainExists:      domainErr == nil,
-		DomainIsPrivate:   !ispublic && domain != "public",
-		DomainKey:         domainKey,
-		DomainValue:       template.HTMLAttr(`value="` + domain + `"`),
-		DomainList:        domainList,
-		ShowCookieMessage: showCookieMessage,
-	})
+	return mainTemplate.Execute(gz, tr)
 }
 
-func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
-	domain := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("d")))
+func (tr *TemplateRender) handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
+	tr.Domain = strings.ToLower(strings.TrimSpace(r.URL.Query().Get("d")))
 
-	// delete default domain cookie
-	_, err = r.Cookie("rwtxt-default-domain")
+	// delete all cookies
+	_, err = r.Cookie("rwtxt-domains")
 	if err == nil {
 		c := &http.Cookie{
-			Name:     "rwtxt-default-domain",
+			Name:     "rwtxt-domains",
 			Value:    "",
 			Path:     "/",
 			Expires:  time.Unix(0, 0),
@@ -351,91 +374,68 @@ func handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
 		http.SetCookie(w, c)
 	}
 
-	// delete domain from list
-	domainMap := getDomainListCookie(w, r)
-	delete(domainMap, domain)
-	log.Debug(domainMap, domain)
-	setDomainListCookie(w, r, domainMap)
-
-	// delete domain password cookie
-	cookie, err := r.Cookie(domain)
-	if err == nil {
-		err = fs.DeleteKey(cookie.Value)
-		if err != nil {
-			log.Error(err)
-		}
-		c := &http.Cookie{
-			Name:     domain,
-			Value:    "",
-			Path:     "/",
-			Expires:  time.Unix(0, 0),
-			HttpOnly: true,
-		}
-		http.SetCookie(w, c)
-		http.Redirect(w, r, "/", 302)
-	}
-
-	return handleMain(w, r, domain, "You are not logged in.")
+	return tr.handleMain(w, r, "You are not logged in.")
 }
 
-func handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
-	domain := strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
+func (tr *TemplateRender) handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
+	tr.Domain = strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
 	password := strings.TrimSpace(r.FormValue("password"))
-	if domain == "public" || domain == "" {
-		return handleMain(w, r, "public", "")
+	if tr.Domain == "public" || tr.Domain == "" {
+		tr.Domain = "public"
+		return tr.handleMain(w, r, "")
 	}
 	if password == "" {
-		return handleMain(w, r, "public", "domain key cannot be empty")
+		tr.Domain = "public"
+		return tr.handleMain(w, r, "domain key cannot be empty")
 	}
 	var key string
 
 	// check if exists
-	_, _, err = fs.GetDomainFromName(domain)
+	_, _, err = fs.GetDomainFromName(tr.Domain)
 	if err != nil {
 		// domain doesn't exist, create it
-		log.Debugf("domain '%s' doesn't exist, creating it", domain)
-		err = fs.SetDomain(domain, password)
+		log.Debugf("domain '%s' doesn't exist, creating it", tr.Domain)
+		err = fs.SetDomain(tr.Domain, password)
 		if err != nil {
 			log.Error(err)
-			return handleMain(w, r, "public", err.Error())
+			tr.Domain = "public"
+			return tr.handleMain(w, r, err.Error())
 		}
 	}
-	key, err = fs.SetKey(domain, password)
+	tr.DomainKey, err = fs.SetKey(tr.Domain, password)
 	if err != nil {
-		return handleMain(w, r, "public", err.Error())
+		tr.Domain = "public"
+		return tr.handleMain(w, r, err.Error())
 	}
 
 	log.Debugf("new key: %s", key)
 	// set domain password
-	expiration := time.Now().Add(365 * 24 * time.Hour)
-	cookie := http.Cookie{Name: domain, Value: key, Expires: expiration}
+	cookie := tr.updateDomainCookie(w, r)
 	http.SetCookie(w, &cookie)
-	// set domain default
-	cookie2 := http.Cookie{Name: "rwtxt-default-domain", Value: domain, Expires: expiration}
-	http.SetCookie(w, &cookie2)
-	http.Redirect(w, r, "/"+domain, 302)
+	http.Redirect(w, r, "/"+tr.Domain, 302)
 	return nil
 }
 
-func handleLoginUpdate(w http.ResponseWriter, r *http.Request) (err error) {
-	domainKey := strings.TrimSpace(strings.ToLower(r.FormValue("domain_key")))
-	domain := strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
+func (tr *TemplateRender) handleLoginUpdate(w http.ResponseWriter, r *http.Request) (err error) {
+	tr.DomainKey = strings.TrimSpace(strings.ToLower(r.FormValue("domain_key")))
+	tr.Domain = strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
 	password := strings.TrimSpace(r.FormValue("password"))
 	isPublic := strings.TrimSpace(r.FormValue("ispublic")) == "on"
-	if domain == "public" || domain == "" {
-		return handleMain(w, r, "public", "cannot modify public")
+	if tr.Domain == "public" || tr.Domain == "" {
+		tr.Domain = "public"
+		return tr.handleMain(w, r, "cannot modify public")
 	}
 
 	// check that the key is valid
-	domainFound, err := fs.CheckKey(domainKey)
-	if err != nil || domain != domainFound {
+	domainFound, err := fs.CheckKey(tr.DomainKey)
+	if err != nil || tr.Domain != domainFound {
 		if err != nil {
 			log.Debug(err)
 		}
-		return handleMain(w, r, domain, err.Error())
+		return tr.handleMain(w, r, err.Error())
 	}
 
-	err = fs.UpdateDomain(domain, password, isPublic)
+	err = fs.UpdateDomain(tr.Domain, password, isPublic)
 	message := "settings updated"
 	if password != "" {
 		message = "password updated"
@@ -443,10 +443,10 @@ func handleLoginUpdate(w http.ResponseWriter, r *http.Request) (err error) {
 	if err != nil {
 		message = err.Error()
 	}
-	return handleMain(w, r, domain, message)
+	return tr.handleMain(w, r, message)
 }
 
-func handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
+func (tr *TemplateRender) handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
 	// handle websockets on this page
 	c, errUpgrade := wsupgrader.Upgrade(w, r, nil)
 	if errUpgrade != nil {
@@ -537,10 +537,8 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	w.Header().Set("Vary", "Accept-Encoding")
 	w.Header().Set("Cache-Control", "public, max-age=7776000")
 	w.Header().Set("Content-Encoding", "gzip")
-	log.Debugf("static: [%s]", page)
 	if strings.HasPrefix(page, "/static") {
 		page = "assets/" + strings.TrimPrefix(page, "/static/")
-		log.Debug(page + ".gz")
 		b, _ := Asset(page + ".gz")
 		if strings.Contains(page, ".js") {
 			w.Header().Set("Content-Type", "text/javascript")
@@ -557,41 +555,36 @@ func handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	return
 }
 
-func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string) (err error) {
+func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request) (err error) {
 	// handle new page
 	// get edit url parameter
-	log.Debugf("loading %s", page)
-	havePage, err := fs.Exists(page, domain)
+	log.Debugf("loading %s", tr.Page)
+	havePage, err := fs.Exists(tr.Page, tr.Domain)
 	if err != nil {
 		return
 	}
 	initialMarkdown := ""
 	var f db.File
-	log.Debugf("%s %s %v", page, domain, havePage)
 
-	// if domainexists, and is not signed in and is not public,
-	// then restrict access
-	signedIn, domainKey, _, _ := isSignedIn(w, r, domain)
 	// check if domain is public and exists
-	_, ispublic, errGet := fs.GetDomainFromName(domain)
-	if errGet == nil && !signedIn && !ispublic {
-		return handleMain(w, r, domain, "domain is not public, sign in first")
+	_, ispublic, errGet := fs.GetDomainFromName(tr.Domain)
+	if errGet == nil && !tr.SignedIn && !ispublic {
+		return tr.handleMain(w, r, "domain is not public, sign in first")
 	}
 
-	var similarFiles []db.File
 	if havePage {
 		var files []db.File
-		files, err = fs.Get(page, domain)
+		files, err = fs.Get(tr.Page, tr.Domain)
 		if err != nil {
 			log.Error(err)
-			return handleMain(w, r, domain, err.Error())
+			return tr.handleMain(w, r, err.Error())
 		}
 		if len(files) > 1 {
-			return handleList(w, r, domain, page, files)
+			return tr.handleList(w, r, tr.Page, files)
 		} else {
 			f = files[0]
 		}
-		similarFiles, err = fs.GetSimilar(f.ID)
+		tr.SimilarFiles, err = fs.GetSimilar(f.ID)
 		if err != nil {
 			log.Error(err)
 		}
@@ -600,18 +593,17 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		f = db.File{
 			ID:       uuid,
 			Created:  time.Now(),
-			Domain:   domain,
+			Domain:   tr.Domain,
 			Modified: time.Now(),
 		}
-		f.Slug = page
+		f.Slug = tr.Page
 		f.Data = ""
 		err = fs.Save(f)
 		if err != nil {
-			log.Error(err)
-			return handleMain(w, r, domain, "domain does not exist")
+			return tr.handleMain(w, r, "domain does not exist")
 		}
 		log.Debugf("saved: %+v", f)
-		http.Redirect(w, r, "/"+domain+"/"+page, 302)
+		http.Redirect(w, r, "/"+tr.Domain+"/"+tr.Page, 302)
 		return
 	}
 	initialMarkdown += "\n\n" + f.Data
@@ -626,28 +618,24 @@ func handleViewEdit(w http.ResponseWriter, r *http.Request, domain, page string)
 		}
 	}()
 
+	tr.Title = f.Slug
+	tr.Rendered = utils.RenderMarkdownToHTML(initialMarkdown)
+	tr.File = f
+	tr.IntroText = template.JS(introText)
+	tr.Rows = len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1
+	tr.EditOnly = strings.TrimSpace(f.Data) == ""
+
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
 	log.Debug(strings.TrimSpace(f.Data))
-	return viewEditTemplate.Execute(gz, TemplateRender{
-		Page:         page,
-		Rendered:     utils.RenderMarkdownToHTML(initialMarkdown),
-		File:         f,
-		IntroText:    template.JS(introText),
-		Title:        f.Slug,
-		Rows:         len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1,
-		Domain:       domain,
-		DomainKey:    domainKey,
-		SignedIn:     signedIn,
-		EditOnly:     strings.TrimSpace(f.Data) == "",
-		SimilarFiles: similarFiles,
-	})
+
+	return viewEditTemplate.Execute(gz, tr)
 
 }
 
-func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error) {
+func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error) {
 	log.Debug("getting ", id)
 	name, data, _, err := fs.GetBlob(id)
 	if err != nil {
@@ -666,10 +654,9 @@ func handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error
 	return
 }
 
-func handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
+func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := r.URL.Query().Get("domain")
-	signedIn, _, _, _ := isSignedIn(w, r, domain)
-	if !signedIn || domain == "public" {
+	if !tr.SignedIn || domain == "public" {
 		http.Error(w, "need to be logged in", http.StatusForbidden)
 		return
 	}
@@ -712,101 +699,74 @@ func handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func handle(w http.ResponseWriter, r *http.Request) (err error) {
-	fields := strings.Split(r.URL.Path, "/")
-	domain := "public"
-	page := ""
-
-	if len(fields) > 2 {
-		page = strings.TrimSpace(strings.ToLower(fields[2]))
-	}
-	if len(fields) > 1 {
-		domain = strings.TrimSpace(strings.ToLower(fields[1]))
-	}
-	// check to see if there is a default domain
-	defaultDomain := "public"
-	cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-	if cookieErr == nil {
-		_, _, domainErr := fs.GetDomainFromName(cookie.Value)
-		if domainErr == nil {
-			// domain exists, redirect to it
-			defaultDomain = cookie.Value
-		}
-	}
-
-	if r.URL.Path == "/" {
-		// special path /
-		http.Redirect(w, r, "/"+defaultDomain, 302)
-	} else if r.URL.Path == "/robots.txt" {
+	// very special paths
+	if r.URL.Path == "/robots.txt" {
 		// special path
 		w.Write([]byte(`User-agent: * 
 Disallow: /`))
 	} else if r.URL.Path == "/favicon.ico" {
-		// favicon
-
+		// TODO
 	} else if r.URL.Path == "/sitemap.xml" {
-		// favicon
-
-	} else if r.URL.Path == "/ws" {
-		// special path /ws
-		return handleWebsocket(w, r)
+		// TODO
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
 		// special path /static
 		return handleStatic(w, r)
+	}
+
+	fields := strings.Split(r.URL.Path, "/")
+
+	tr := new(TemplateRender)
+	tr.Domain = "public"
+	if len(fields) > 2 {
+		tr.Page = strings.TrimSpace(strings.ToLower(fields[2]))
+	}
+	if len(fields) > 1 {
+		tr.Domain = strings.TrimSpace(strings.ToLower(fields[1]))
+	}
+
+	tr.SignedIn, tr.DomainKey, tr.DefaultDomain, tr.DomainList, tr.DomainKeys = isSignedIn(w, r, tr.Domain)
+
+	if r.URL.Path == "/" {
+		// special path /
+		http.Redirect(w, r, "/"+tr.DefaultDomain, 302)
 	} else if r.URL.Path == "/login" {
 		// special path /login
-		return handleLogin(w, r)
+		return tr.handleLogin(w, r)
+	} else if r.URL.Path == "/ws" {
+		// special path /ws
+		return tr.handleWebsocket(w, r)
 	} else if r.URL.Path == "/update" {
 		// special path /login
-		return handleLoginUpdate(w, r)
+		return tr.handleLoginUpdate(w, r)
 	} else if r.URL.Path == "/logout" {
 		// special path /logout
-		return handleLogout(w, r)
+		return tr.handleLogout(w, r)
 	} else if r.URL.Path == "/upload" {
 		// special path /upload
-		return handleUpload(w, r)
-	} else if domain == "new" {
+		return tr.handleUpload(w, r)
+	} else if tr.Page == "new" {
 		// special path /upload
-		http.Redirect(w, r, "/"+defaultDomain+"/"+createPage(defaultDomain).ID, 302)
+		http.Redirect(w, r, "/"+tr.DefaultDomain+"/"+createPage(tr.DefaultDomain).ID, 302)
 		return
 	} else if strings.HasPrefix(r.URL.Path, "/uploads") {
 		// special path /uploads
-		return handleUploads(w, r, page)
-	} else if domain != "" && page == "" {
+		return tr.handleUploads(w, r, tr.Page)
+	} else if tr.Domain != "" && tr.Page == "" {
 		if r.URL.Query().Get("q") != "" {
-			return handleSearch(w, r, domain, r.URL.Query().Get("q"))
+			return tr.handleSearch(w, r, tr.Domain, r.URL.Query().Get("q"))
 		}
-
-		// // check to see if domain exists
-		// cookie, cookieErr := r.Cookie("rwtxt-default-domain")
-		// _, _, domainErr := fs.GetDomainFromName(domain)
-		// if domainErr != nil && cookieErr == nil {
-		// 	log.Debug(domainErr)
-		// 	// we are trying to goto a page that doesn't exist as a domain
-		// 	// automatically create a new page for editing in the default domain
-		// 	http.Redirect(w, r, "/"+cookie.Value+"/"+domain+"?edit=1", 302)
-		// 	return
-		// }
-
-		// // check to see if page exists in public domain and redirect to it
-		// fs, _ := fs.Get(domain, "public")
-		// if len(fs) > 0 {
-		// 	http.Redirect(w, r, "/public/"+domain, 302)
-		// 	return
-		// }
-
 		// domain exists, handle normally
-		return handleMain(w, r, domain, "")
-	} else if domain != "" && page != "" {
-		if page == "list" {
-			files, _ := fs.GetAll(domain)
+		return tr.handleMain(w, r, "")
+	} else if tr.Domain != "" && tr.Page != "" {
+		if tr.Page == "list" {
+			files, _ := fs.GetAll(tr.Domain)
 			for i := range files {
 				files[i].Data = ""
 				files[i].DataHTML = template.HTML("")
 			}
-			return handleList(w, r, domain, "All", files)
+			return tr.handleList(w, r, "All", files)
 		}
-		log.Debug("handle view edit")
-		return handleViewEdit(w, r, domain, page)
+		return tr.handleViewEdit(w, r)
 	}
 	return
 }
