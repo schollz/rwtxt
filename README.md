@@ -25,7 +25,7 @@ alt="Version"></a> </p>
 
 You can easily [create your own domain](https://rwtxt.com/public) in 10 seconds. When you make a new domain it will be private by default, so only you can view/search/edit your own text. 
 
-Once you make a domain you will se an option to make your domain *public* so that anyone can view/search it. However, only people with the domain password can edit in your domain - making *rwtxt* useful as a password-protected wiki. (The one exception is the [`/public`](https://rwtxt.com/public) domain, which anyone can edit/view - making *rwtxt* useful as a pastebin).
+Once you make a domain you will see an option to make your domain *public* so that anyone can view/search it. However, only people with the domain password can edit in your domain - making *rwtxt* useful as a password-protected wiki. (The one exception is the [`/public`](https://rwtxt.com/public) domain, which anyone can edit/view - making *rwtxt* useful as a pastebin).
 
 
 **Writing.** To write in *rwtxt*, just create a new page and click "Edit", or goto a URL for the thing you want to write about - like `rwtxt.com/something-i-want-to-write`. When you write in *rwtxt* you can format your text in [Markdown](https://guides.github.com/features/mastering-markdown/).
