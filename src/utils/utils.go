@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"html/template"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -91,4 +92,21 @@ func CheckPasswordHash(hash, password string) error {
 		return err
 	}
 	return bcrypt.CompareHashAndPassword(hashB, []byte(password))
+}
+
+// DetectMarkdownCodeBlockLanguages detects and returns programming languages used in
+// code blocks
+func DetectMarkdownCodeBlockLanguages(markdown string) (codeblocks []string) {
+	codeblocks = []string{}
+	for _, line := range strings.Split(markdown, "\n") {
+		line = strings.TrimSpace(line)
+		if len(line) <= 3 {
+			continue
+		}
+		if !strings.HasPrefix(line, "```") {
+			continue
+		}
+		codeblocks = append(codeblocks, strings.ToLower(strings.TrimSpace(strings.TrimPrefix(line, "```"))))
+	}
+	return
 }

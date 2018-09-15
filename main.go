@@ -29,6 +29,7 @@ var viewEditTemplate *template.Template
 var mainTemplate *template.Template
 var loginTemplate *template.Template
 var listTemplate *template.Template
+var prismTemplate []string
 var fs *db.FileSystem
 
 type TemplateRender struct {
@@ -57,6 +58,8 @@ type TemplateRender struct {
 	DomainExists      bool
 	ShowCookieMessage bool
 	EditOnly          bool
+	Languages         []string
+	LanguageJS        []template.JS
 }
 
 func init() {
@@ -98,7 +101,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	listTemplate = template.Must(template.New("main").Parse(string(b)))
+	listTemplate = template.Must(template.New("list").Parse(string(b)))
 	b, err = Asset("assets/header.html")
 	if err != nil {
 		panic(err)
@@ -109,10 +112,54 @@ func init() {
 		panic(err)
 	}
 	listTemplate = template.Must(listTemplate.Parse(string(b)))
+
+	b, err = Asset("assets/prism.js")
+	if err != nil {
+		panic(err)
+	}
+	prismTemplate = strings.Split(string(b), "LANGUAGES")
+
+	b, err = Asset("assets/js/languages.js.gz")
+	if err != nil {
+		panic(err)
+	}
+	b2 := bytes.NewBuffer(b)
+	var r io.Reader
+	r, err = gzip.NewReader(b2)
+	if err != nil {
+		panic(err)
+	}
+	var resB bytes.Buffer
+	_, err = resB.ReadFrom(r)
+	if err != nil {
+		panic(err)
+	}
+
+	languageCSS = make(map[string]string)
+	currentLanguage := ""
+	for _, line := range strings.Split(string(resB.Bytes()), "\n") {
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		if strings.HasPrefix(line, "Prism.languages.") {
+			language := strings.TrimPrefix(strings.Split(line, "=")[0], "Prism.languages.")
+			if len(language) < 30 {
+				currentLanguage = language
+			}
+		}
+		if currentLanguage != "" {
+			if _, ok := languageCSS[currentLanguage]; !ok {
+				languageCSS[currentLanguage] = ""
+			}
+			languageCSS[currentLanguage] += line + "\n"
+		}
+	}
 }
 
 var dbName string
 var Version string
+var languageCSS map[string]string
 
 func main() {
 	var err error
@@ -629,6 +676,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	tr.IntroText = template.JS(introText)
 	tr.Rows = len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1
 	tr.EditOnly = strings.TrimSpace(f.Data) == ""
+	tr.Languages = utils.DetectMarkdownCodeBlockLanguages(initialMarkdown)
 
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
@@ -638,6 +686,26 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 
 	return viewEditTemplate.Execute(gz, tr)
 
+}
+
+func handlePrism(w http.ResponseWriter, r *http.Request) (err error) {
+	prismJS := prismTemplate[0]
+	languageString, ok := r.URL.Query()["l"]
+	if ok && len(languageString) > 0 {
+		for _, lang := range strings.Split(languageString[0], ",") {
+			if _, ok2 := languageCSS[lang]; ok2 {
+				prismJS += languageCSS[lang]
+			}
+		}
+	}
+	prismJS += prismTemplate[1]
+	w.Header().Set("Cache-Control", "public, max-age=7776000")
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Content-Type", "text/javascript")
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	_, err = gz.Write([]byte(prismJS))
+	return
 }
 
 func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, id string) (err error) {
@@ -661,7 +729,16 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 
 func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (err error) {
 	domain := r.URL.Query().Get("domain")
+	// special check for sign in
+	for _, domainName := range tr.DomainList {
+		if domain == domainName {
+			tr.SignedIn = true
+			break
+		}
+	}
 	if !tr.SignedIn || domain == "public" {
+		log.Debugf("got domain: %s, signed in: %+v", domain, tr)
+		log.Debugf("refusing to upload")
 		http.Error(w, "need to be logged in", http.StatusForbidden)
 		return
 	}
@@ -713,6 +790,8 @@ Disallow: /`))
 		// TODO
 	} else if r.URL.Path == "/sitemap.xml" {
 		// TODO
+	} else if strings.HasPrefix(r.URL.Path, "/prism.js") {
+		return handlePrism(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
 		// special path /static
 		return handleStatic(w, r)

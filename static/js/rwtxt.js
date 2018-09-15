@@ -241,14 +241,15 @@ window.onclick= function (event) {
     }
 }
 
-
-Dropzone.options.dropzoneForm = {
-    clickable: false,
-    maxFilesize:   10  , 
-    init: function initDropzone() {
-        this.on("complete", onUploadFinished);
-    }
-};
+if (window.rwtxt.domain_key != "") {
+    Dropzone.options.dropzoneForm = {
+        clickable: false,
+        maxFilesize:   10  , 
+        init: function initDropzone() {
+            this.on("complete", onUploadFinished);
+        }
+    };    
+}
 
 if (window.rwtxt.editonly == "yes") {
     socketCloseListener();

@@ -39,8 +39,8 @@
     }
 </script>
 
-<script src="/static/js/dropzone.js"></script>
-<script src="/static/js/prism.js"></script>
+{{if .DomainKey}}<script src="/static/js/dropzone.js"></script>{{end}}
+{{ if .Languages }}<script src="/prism.js?l={{ range $index, $element := .Languages}}{{if $index}},{{end}}{{$element}}{{end}}"></script>{{end}}
 <script src="/static/js/rwtxt.js"></script>
 
 
