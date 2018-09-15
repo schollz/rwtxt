@@ -97,7 +97,7 @@ func CheckPasswordHash(hash, password string) error {
 // DetectMarkdownCodeBlockLanguages detects and returns programming languages used in
 // code blocks
 func DetectMarkdownCodeBlockLanguages(markdown string) (codeblocks []string) {
-	codeblocks = []string{}
+	codeblocksMap := make(map[string]struct{})
 	for _, line := range strings.Split(markdown, "\n") {
 		line = strings.TrimSpace(line)
 		if len(line) <= 3 {
@@ -106,7 +106,13 @@ func DetectMarkdownCodeBlockLanguages(markdown string) (codeblocks []string) {
 		if !strings.HasPrefix(line, "```") {
 			continue
 		}
-		codeblocks = append(codeblocks, strings.ToLower(strings.TrimSpace(strings.TrimPrefix(line, "```"))))
+		codeblocksMap[strings.ToLower(strings.TrimSpace(strings.TrimPrefix(line, "```")))] = struct{}{}
+	}
+	codeblocks = make([]string, len(codeblocksMap))
+	i := 0
+	for key := range codeblocksMap {
+		codeblocks[i] = key
+		i++
 	}
 	return
 }
