@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -441,6 +442,24 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, "/"+tr.Domain+"/"+tr.Page, 302)
 		return
 	}
+	tr.File = f
+
+	// get a specific version
+	version := r.URL.Query().Get("version")
+	if version != "" {
+		versionNum, numErr := strconv.Atoi(version)
+		if numErr == nil {
+			versionData, versionErr := f.History.GetPreviousByTimestamp(int64(versionNum))
+			if versionErr == nil {
+				f.Data = versionData
+				// prevent editing
+				tr.DomainKey = ""
+				tr.SignedIn = false
+				tr.File.Modified = time.Unix(0, int64(versionNum))
+			}
+		}
+	}
+
 	initialMarkdown += "\n\n" + f.Data
 	// if f.Data == "" {
 	// 	f.Data = introText
@@ -455,7 +474,6 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 
 	tr.Title = f.Slug
 	tr.Rendered = utils.RenderMarkdownToHTML(initialMarkdown)
-	tr.File = f
 	tr.IntroText = template.JS(introText)
 	tr.Rows = len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1
 	tr.EditOnly = strings.TrimSpace(f.Data) == ""
