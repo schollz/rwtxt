@@ -42,22 +42,15 @@ func New(fs *db.FileSystem) (*RWTxt, error) {
 	}
 
 	var err error
+	headerFooter := []string{"assets/header.html", "assets/footer.html"}
 
 	b, err := Asset("assets/viewedit.html")
 	if err != nil {
 		return nil, err
 	}
 	rwt.viewEditTemplate = template.Must(template.New("viewedit").Parse(string(b)))
-	b, err = Asset("assets/header.html")
-	if err != nil {
-		return nil, err
-	}
-	rwt.viewEditTemplate = template.Must(rwt.viewEditTemplate.Parse(string(b)))
-	b, err = Asset("assets/footer.html")
-	if err != nil {
-		return nil, err
-	}
-	rwt.viewEditTemplate = template.Must(rwt.viewEditTemplate.Parse(string(b)))
+
+	err = templateAssets(headerFooter, rwt.viewEditTemplate)
 
 	b, err = Asset("assets/main.html")
 	if err != nil {
@@ -65,32 +58,16 @@ func New(fs *db.FileSystem) (*RWTxt, error) {
 	}
 
 	rwt.mainTemplate = template.Must(template.New("main").Parse(string(b)))
-	b, err = Asset("assets/header.html")
-	if err != nil {
-		return nil, err
-	}
-	rwt.mainTemplate = template.Must(rwt.mainTemplate.Parse(string(b)))
-	b, err = Asset("assets/footer.html")
-	if err != nil {
-		return nil, err
-	}
-	rwt.mainTemplate = template.Must(rwt.mainTemplate.Parse(string(b)))
+
+	err = templateAssets(headerFooter, rwt.mainTemplate)
 
 	b, err = Asset("assets/list.html")
 	if err != nil {
 		return nil, err
 	}
 	rwt.listTemplate = template.Must(template.New("list").Parse(string(b)))
-	b, err = Asset("assets/header.html")
-	if err != nil {
-		return nil, err
-	}
-	rwt.listTemplate = template.Must(rwt.listTemplate.Parse(string(b)))
-	b, err = Asset("assets/footer.html")
-	if err != nil {
-		return nil, err
-	}
-	rwt.listTemplate = template.Must(rwt.listTemplate.Parse(string(b)))
+
+	err = templateAssets(headerFooter, rwt.listTemplate)
 
 	b, err = Asset("assets/prism.js")
 	if err != nil {
@@ -98,7 +75,19 @@ func New(fs *db.FileSystem) (*RWTxt, error) {
 	}
 	rwt.prismTemplate = strings.Split(string(b), "LANGUAGES")
 
-	return rwt, nil
+	return rwt, err
+}
+
+func templateAssets(s []string, t *template.Template) error {
+	for _, asset := range s {
+		b, err := Asset(asset)
+		if err != nil {
+			return err
+		}
+
+		t = template.Must(t.Parse(string(b)))
+	}
+	return nil
 }
 
 func (rwt *RWTxt) Serve() (err error) {
