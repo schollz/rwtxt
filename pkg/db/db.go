@@ -988,7 +988,7 @@ func (fs *FileSystem) Find(text string, domain string) (files []File, err error)
 	defer fs.Unlock()
 
 	files, err = fs.getAllFromPreparedQuery(`
-		SELECT fs.id,fs.slug,fs.created,fs.modified,snippet(fts),fs.history,fs.views FROM fts 
+		SELECT fs.id,fs.slug,fs.created,fs.modified,snippet(fts,'<b>','</b>','...',-1,-30),fs.history,fs.views FROM fts 
 			INNER JOIN fs ON fs.id=fts.id 
 			INNER JOIN domains ON fs.domainid=domains.id
 			WHERE fts.data MATCH ?
