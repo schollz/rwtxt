@@ -20,6 +20,7 @@ func main() {
 		debug       = flag.Bool("debug", false, "debug mode")
 		showVersion = flag.Bool("v", false, "show version")
 		database    = flag.String("db", "rwtxt.db", "name of the database")
+		listen      = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
 	)
 	flag.Parse()
 
@@ -48,6 +49,9 @@ func main() {
 	rwt, err := rwtxt.New(fs)
 	if err != nil {
 		panic(err)
+	}
+	if listen != nil && *listen != "" {
+		rwt.Bind = *listen
 	}
 
 	err = rwt.Serve()

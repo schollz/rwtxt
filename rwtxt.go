@@ -15,7 +15,10 @@ import (
 	"github.com/schollz/rwtxt/pkg/utils"
 )
 
+const DefaultBind = ":8152"
+
 type RWTxt struct {
+	Bind             string // interface:port to listen on, defaults to DefaultBind.
 	viewEditTemplate *template.Template
 	mainTemplate     *template.Template
 	loginTemplate    *template.Template
@@ -27,7 +30,8 @@ type RWTxt struct {
 
 func New(fs *db.FileSystem) (*RWTxt, error) {
 	rwt := &RWTxt{
-		fs: fs,
+		Bind: DefaultBind,
+		fs:   fs,
 		wsupgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -120,9 +124,9 @@ func (rwt *RWTxt) Serve() (err error) {
 			}
 		}
 	}()
-	log.Info("running on port 8152")
+	log.Infof("listening on %v", rwt.Bind)
 	http.HandleFunc("/", rwt.Handler)
-	return http.ListenAndServe(":8152", nil)
+	return http.ListenAndServe(rwt.Bind, nil)
 }
 
 func (rwt *RWTxt) isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin bool, domainkey string, defaultDomain string, domainList []string, domainKeys map[string]string) {
