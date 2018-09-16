@@ -64,6 +64,10 @@ a.grayed {
     border-bottom: 0.5px solid #aaa;
 }
 
+.grey {
+    color: #aaa; 
+}
+
 pre {
     white-space: pre-wrap;
     /* css-3 */
