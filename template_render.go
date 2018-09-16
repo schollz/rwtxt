@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -558,5 +559,23 @@ func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (
 
 	w.Header().Set("Location", "/uploads/"+id+"?filename="+url.QueryEscape(info.Filename))
 	_, err = w.Write([]byte("ok"))
+	return
+}
+
+func (tr *TemplateRender) handleExport(w http.ResponseWriter, r *http.Request) (err error) {
+	log.Debug("exporting")
+	if tr.Domain == "public" {
+		return tr.handleMain(w, r, "can't export public")
+	}
+	if !tr.SignedIn {
+		return tr.handleMain(w, r, "must sign in")
+	}
+	files, _ := tr.rwt.fs.GetAll(tr.Domain)
+	for i := range files {
+		files[i].DataHTML = template.HTML("")
+	}
+	w.Header().Set("Content-Type", "application/json")
+	js, err := json.Marshal(files)
+	w.Write(js)
 	return
 }

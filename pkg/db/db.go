@@ -27,15 +27,15 @@ type FileSystem struct {
 
 // File is the basic unit that is saved
 type File struct {
-	ID       string
-	Slug     string
-	Created  time.Time
-	Modified time.Time
-	Data     string
-	Domain   string
-	History  versionedtext.VersionedText
-	DataHTML template.HTML
-	Views    int
+	ID       string                      `json:"id"`
+	Slug     string                      `json:"slug"`
+	Created  time.Time                   `json:"created"`
+	Modified time.Time                   `json:"modified"`
+	Data     string                      `json:"data"`
+	Domain   string                      `json:"domain"`
+	History  versionedtext.VersionedText `json:"history"`
+	DataHTML template.HTML               `json:"data_html,omitempty"`
+	Views    int                         `json:"views"`
 }
 
 // New will initialize a filesystem
@@ -847,7 +847,7 @@ func (fs *FileSystem) SetSimilar(id string, similarids []string) (err error) {
 func (fs *FileSystem) GetAll(domain string) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
-	return fs.getAllFromPreparedQuery(`
+	files, err = fs.getAllFromPreparedQuery(`
 	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
 	INNER JOIN fts ON fs.id=fts.id 
 	INNER JOIN domains ON fs.domainid=domains.id
@@ -855,6 +855,10 @@ func (fs *FileSystem) GetAll(domain string) (files []File, err error) {
 		domains.name = ?
 		AND LENGTH(fts.data) > 0
 	ORDER BY fs.modified DESC`, domain)
+	for i := range files {
+		files[i].Domain = domain
+	}
+	return
 }
 
 // GetSimilar returns all the files for a given domain

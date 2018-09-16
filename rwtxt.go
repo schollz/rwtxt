@@ -241,6 +241,7 @@ Disallow: /`))
 		// domain exists, handle normally
 		return tr.handleMain(w, r, "")
 	} else if tr.Domain != "" && tr.Page != "" {
+		log.Debugf("[%s/%s]", tr.Domain, tr.Page)
 		if tr.Page == "list" {
 			if tr.Domain == "public" {
 				return tr.handleMain(w, r, "can't list public")
@@ -252,6 +253,8 @@ Disallow: /`))
 				files[i].DataHTML = template.HTML("")
 			}
 			return tr.handleList(w, r, "All", files)
+		} else if tr.Page == "export" {
+			return tr.handleExport(w, r)
 		}
 		return tr.handleViewEdit(w, r)
 	}

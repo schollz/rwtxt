@@ -32,6 +32,10 @@ build:
 run: build
 	$(GOPATH)/bin/rwtxt
 
+debug: 
+	go get -v --tags "fts4" ${LDFLAGS} ./...
+	$(GOPATH)/bin/rwtxt --debug
+
 dev:
 	rerun make run
 
