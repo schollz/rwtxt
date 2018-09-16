@@ -19,11 +19,11 @@ alt="Version"></a> </p>
 
 *rwtxt* is backed by a single [sqlite3](https://www.sqlite.org/index.html) database, so its portable and very easy to backup. Its written in Go and all the assets are bundled so you can just download a single binary and start writing. You can also try the online version: [rwtxt.com](https://rwtxt.com/public).
 
-## Usage 
+## Usage
 
 **Reading.** You can share *rwtxt* links to read them on another computer. *rwtxt* is organized in *domains* - places where you can privately or publicly store your text. If the *domain* is private, you must be signed in to read, even you have the permalink.
 
-You can easily [create your own domain](https://rwtxt.com/public) in 10 seconds. When you make a new domain it will be private by default, so only you can view/search/edit your own text. 
+You can easily [create your own domain](https://rwtxt.com/public) in 10 seconds. When you make a new domain it will be private by default, so only you can view/search/edit your own text.
 
 Once you make a domain you will see an option to make your domain *public* so that anyone can view/search it. However, only people with the domain password can edit in your domain - making *rwtxt* useful as a password-protected wiki. (The one exception is the [`/public`](https://rwtxt.com/public) domain, which anyone can edit/view - making *rwtxt* useful as a pastebin).
 
@@ -49,7 +49,7 @@ console.log("hello, world");
 
 You can easily install and run *rwtxt* on your own computer.
 
-You can download a binary for the [latest release](https://github.com/schollz/rwtxt/releases/latest). 
+You can download a binary for the [latest release](https://github.com/schollz/rwtxt/releases/latest).
 
 Or you can install from source. First make sure to [install Go](https://golang.org/dl/). Then clone the repo:
 
@@ -67,7 +67,8 @@ $ make
 And then run it!
 
 ```bash
-$ ./rwtxt
+$ export PATH="${PATH}:${GOPATH}/bin"
+$ rwtxt
 ```
 
 ## Notice

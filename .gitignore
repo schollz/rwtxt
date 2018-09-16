@@ -10,3 +10,12 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Intermediate build artifacts
+/assets
+/bindata.go
+/go.sum
+
+# RWTxt databases
+*db
+*.db.sql.gz

@@ -14,7 +14,7 @@ import (
 	log "github.com/cihub/seelog"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"github.com/schollz/rwtxt/src/utils"
+	"github.com/schollz/rwtxt/pkg/utils"
 	"github.com/schollz/sqlite3dump"
 	"github.com/schollz/versionedtext"
 )
