@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"runtime/pprof"
+	"time"
 
 	log "github.com/cihub/seelog"
 	"github.com/schollz/rwtxt"
@@ -16,13 +19,29 @@ var (
 
 func main() {
 	var (
-		err         error
-		debug       = flag.Bool("debug", false, "debug mode")
-		showVersion = flag.Bool("v", false, "show version")
-		database    = flag.String("db", "rwtxt.db", "name of the database")
-		listen      = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
+		err           error
+		debug         = flag.Bool("debug", false, "debug mode")
+		showVersion   = flag.Bool("v", false, "show version")
+		profileMemory = flag.Bool("memprofile", false, "profile memory")
+		database      = flag.String("db", "rwtxt.db", "name of the database")
+		listen        = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
 	)
 	flag.Parse()
+
+	if *profileMemory {
+		go func() {
+			for {
+				time.Sleep(30 * time.Second)
+				log.Info("writing memprofile")
+				f, err := os.Create("memprofile")
+				if err != nil {
+					panic(err)
+				}
+				pprof.WriteHeapProfile(f)
+				f.Close()
+			}
+		}()
+	}
 
 	if *showVersion {
 		fmt.Println(Version)
