@@ -8,9 +8,10 @@
     <p>Currently in the <strong>{{.Domain}}</strong> domain.</p>
     {{range .Files}}
     <p>
-        ({{.Modified.Format "Mon Jan 2 3:04pm 2006"}})
         <a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
-        <em>{{.DataHTML}}</em>
+        <small class="grey">{{.Modified.Format "Jan 2 3:04pm 2006"}}</small>
+        
+        <blockquote><em>{{.DataHTML}}</em></blockquote>
     </p>
     {{end}}
 </div>
