@@ -8,6 +8,7 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/rwtxt"
 	"github.com/schollz/rwtxt/pkg/db"
 )

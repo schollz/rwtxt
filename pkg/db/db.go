@@ -12,7 +12,6 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/schollz/rwtxt/pkg/utils"
 	"github.com/schollz/sqlite3dump"
@@ -20,8 +19,8 @@ import (
 )
 
 type FileSystem struct {
-	name string
-	db   *sql.DB
+	Name string
+	DB   *sql.DB
 	sync.RWMutex
 }
 
@@ -38,20 +37,22 @@ type File struct {
 	Views    int                         `json:"views"`
 }
 
-// New will initialize a filesystem
+// New will initialize a filesystem by creating DB and calling InitializeDB.
+// Callers should ensure "github.com/mattn/go-sqlite3" is imported in some way
+// before calling this so the sqlite3 driver is available.
 func New(name string) (fs *FileSystem, err error) {
 	fs = new(FileSystem)
 	if name == "" {
 		err = errors.New("database must have name")
 		return
 	}
-	fs.name = name
+	fs.Name = name
 
-	fs.db, err = sql.Open("sqlite3", fs.name)
+	fs.DB, err = sql.Open("sqlite3", fs.Name)
 	if err != nil {
 		return
 	}
-	err = fs.initializeDB()
+	err = fs.InitializeDB(true)
 	if err != nil {
 		err = errors.Wrap(err, "could not initialize")
 		return
@@ -60,9 +61,11 @@ func New(name string) (fs *FileSystem, err error) {
 	return
 }
 
-func (fs *FileSystem) initializeDB() (err error) {
-	// if _, errHaveSQL := os.Stat(fs.name + ".sql.gz"); errHaveSQL == nil {
-	// 	fi, err := os.Open(fs.name + ".sql.gz")
+// InitializeDB will initialize schema if not already done and if dump is true,
+// will create the an initial DB dump. This is automatically called by New.
+func (fs *FileSystem) InitializeDB(dump bool) (err error) {
+	// if _, errHaveSQL := os.Stat(fs.Name + ".sql.gz"); errHaveSQL == nil {
+	// 	fi, err := os.Open(fs.Name + ".sql.gz")
 	// 	if err != nil {
 	// 		return err
 	// 	}
@@ -78,7 +81,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 	// 	if err != nil {
 	// 		return err
 	// 	}
-	// 	_, err = fs.db.Exec(string(s))
+	// 	_, err = fs.DB.Exec(string(s))
 	// 	return err
 	// }
 	sqlStmt := `CREATE TABLE IF NOT EXISTS 
@@ -91,7 +94,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 			history TEXT,
 			views INTEGER DEFAULT 0
 		);`
-	_, err = fs.db.Exec(sqlStmt)
+	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating table")
 		return
@@ -99,7 +102,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 
 	sqlStmt = `CREATE VIRTUAL TABLE IF NOT EXISTS 
 		fts USING fts4 (id,data);`
-	_, err = fs.db.Exec(sqlStmt)
+	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating virtual table")
 	}
@@ -111,7 +114,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		hashed_pass TEXT,
 		ispublic INTEGER DEFAULT 0
 	);`
-	_, err = fs.db.Exec(sqlStmt)
+	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating domains table")
 	}
@@ -123,7 +126,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		key TEXT,
 		lastused TIMESTAMP
 	);`
-	_, err = fs.db.Exec(sqlStmt)
+	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating keys table")
 	}
@@ -135,7 +138,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		data BLOB,
 		views INTEGER DEFAULT 0
 	);`
-	_, err = fs.db.Exec(sqlStmt)
+	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating domains table")
 	}
@@ -146,7 +149,7 @@ func (fs *FileSystem) initializeDB() (err error) {
 		fsid TEXT,
 		fsid_similar TEXT
 	);`
-	_, err = fs.db.Exec(sqlStmt)
+	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
 		err = errors.Wrap(err, "creating similarities table")
 	}
@@ -157,17 +160,19 @@ func (fs *FileSystem) initializeDB() (err error) {
 		fs.UpdateDomain("public", "", true)
 	}
 
-	fs.DumpSQL()
+	if dump {
+		fs.DumpSQL()
+	}
 	return
 }
 
-// DumpSQL will dump the SQL as text to filename.sql
+// DumpSQL will dump the SQL as text to filename.sql.gz
 func (fs *FileSystem) DumpSQL() (err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
 	// first purge the database of old stuff
-	_, err = fs.db.Exec(`
+	_, err = fs.DB.Exec(`
 	DELETE FROM fs WHERE id IN (SELECT id FROM fts where data == '');
 	DELETE FROM fts WHERE data = '';
 	`)
@@ -175,13 +180,13 @@ func (fs *FileSystem) DumpSQL() (err error) {
 		return
 	}
 
-	fi, err := os.Create(fs.name + ".sql.gz")
+	fi, err := os.Create(fs.Name + ".sql.gz")
 	if err != nil {
 		return
 	}
 	gf := gzip.NewWriter(fi)
 	fw := bufio.NewWriter(gf)
-	err = sqlite3dump.DumpMigration(fs.db, fw)
+	err = sqlite3dump.DumpMigration(fs.DB, fw)
 	fw.Flush()
 	gf.Close()
 	fi.Close()
@@ -205,7 +210,7 @@ func (fs *FileSystem) SaveBlob(id string, name string, blob []byte) (err error) 
 	fs.Lock()
 	defer fs.Unlock()
 
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin SaveBlob")
 	}
@@ -245,7 +250,7 @@ func (fs *FileSystem) GetBlob(id string) (name string, data []byte, views int, e
 	fs.Lock()
 	defer fs.Unlock()
 
-	stmt, err := fs.db.Prepare("SELECT name,data,views FROM blobs WHERE id = ?")
+	stmt, err := fs.DB.Prepare("SELECT name,data,views FROM blobs WHERE id = ?")
 	if err != nil {
 		return
 	}
@@ -258,7 +263,7 @@ func (fs *FileSystem) GetBlob(id string) (name string, data []byte, views int, e
 	log.Debugf("id :%s, views: %d", id, views)
 
 	// update the views
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return
 	}
@@ -298,7 +303,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 		return errors.New("domain does not exist")
 	}
 
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
 	}
@@ -347,7 +352,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	}
 
 	// if it was ignored
-	tx2, err := fs.db.Begin()
+	tx2, err := fs.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
 	}
@@ -390,7 +395,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	}
 
 	// update the index
-	tx3, err := fs.db.Begin()
+	tx3, err := fs.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin virtual Save")
 	}
@@ -417,7 +422,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 
 // Close will make sure that the lock file is closed
 func (fs *FileSystem) Close() (err error) {
-	return fs.db.Close()
+	return fs.DB.Close()
 }
 
 // Len returns how many things
@@ -427,7 +432,7 @@ func (fs *FileSystem) Len() (l int, err error) {
 
 	// prepare statement
 	query := "SELECT COUNT(id) FROM FS"
-	stmt, err := fs.db.Prepare(query)
+	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
 		return
@@ -469,7 +474,7 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 		err = errors.New("domain does not exist")
 		return
 	}
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return
 	}
@@ -494,7 +499,7 @@ func (fs *FileSystem) DeleteOldKeys() (err error) {
 	defer fs.Unlock()
 
 	// first purge the database of old stuff
-	stmt, err := fs.db.Prepare(`DELETE FROM keys WHERE lastused <= DATETIME('now','-5 days')`)
+	stmt, err := fs.DB.Prepare(`DELETE FROM keys WHERE lastused <= DATETIME('now','-5 days')`)
 	if err != nil {
 		return
 	}
@@ -510,7 +515,7 @@ func (fs *FileSystem) DeleteKey(key string) (err error) {
 	defer fs.Unlock()
 
 	// first purge the database of old stuff
-	stmt, err := fs.db.Prepare(`DELETE FROM keys WHERE key=?;`)
+	stmt, err := fs.DB.Prepare(`DELETE FROM keys WHERE key=?;`)
 	if err != nil {
 		return
 	}
@@ -524,7 +529,7 @@ func (fs *FileSystem) UpdateViews(f File) (err error) {
 	defer fs.Unlock()
 
 	// update the views
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return
 	}
@@ -569,7 +574,7 @@ func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
 }
 
 func (fs *FileSystem) checkKey(key string) (domain string, err error) {
-	stmt, err := fs.db.Prepare(`
+	stmt, err := fs.DB.Prepare(`
 	SELECT 
 		domains.name
 	FROM keys 
@@ -599,7 +604,7 @@ func (fs *FileSystem) checkKey(key string) (domain string, err error) {
 func (fs *FileSystem) UpdateKeys(keys []string) (err error) {
 	fs.Lock()
 	defer fs.Unlock()
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return
 	}
@@ -634,7 +639,7 @@ func (fs *FileSystem) SetDomain(domain, password string) (err error) {
 
 func (fs *FileSystem) setDomain(domain, password string) (err error) {
 	domain = strings.ToLower(domain)
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
 	}
@@ -677,7 +682,7 @@ func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool) (err 
 		isPublicValue = 1
 	}
 
-	tx, err := fs.db.Begin()
+	tx, err := fs.DB.Begin()
 	var stmt *sql.Stmt
 	if err != nil {
 		return errors.Wrap(err, "begin Save")
@@ -763,7 +768,7 @@ func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, ispublic b
 func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPassword string, ispublic int, err error) {
 	// prepare statement
 	query := "SELECT id,hashed_pass,ispublic FROM domains WHERE name = ?"
-	stmt, err := fs.db.Prepare(query)
+	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
 		return
@@ -796,7 +801,7 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPass
 
 func (fs *FileSystem) SetSimilar(id string, similarids []string) (err error) {
 	// first purge the database of previous similarities
-	stmt, err := fs.db.Prepare(`DELETE FROM similar WHERE fsid=?;`)
+	stmt, err := fs.DB.Prepare(`DELETE FROM similar WHERE fsid=?;`)
 	if err != nil {
 		return
 	}
@@ -808,7 +813,7 @@ func (fs *FileSystem) SetSimilar(id string, similarids []string) (err error) {
 
 	for _, similarid := range similarids {
 		// inset new similarities
-		tx, err := fs.db.Begin()
+		tx, err := fs.DB.Begin()
 		if err != nil {
 			return errors.Wrap(err, "begin setsmiilar")
 		}
@@ -957,7 +962,7 @@ func (fs *FileSystem) get(id string, domain string) (files []File, err error) {
 func (fs *FileSystem) LastModified() (lastModified time.Time, err error) {
 	// prepare statement
 	query := "SELECT modified FROM fs ORDER BY modified DESC LIMIT 1"
-	stmt, err := fs.db.Prepare(query)
+	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
 		return
@@ -1047,7 +1052,7 @@ func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) 
 
 func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{}) (files []File, err error) {
 	// prepare statement
-	stmt, err := fs.db.Prepare(query)
+	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
 		return
@@ -1098,7 +1103,7 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 
 func (fs *FileSystem) getAllFromPreparedQuerySingleString(query string, args ...interface{}) (s []string, err error) {
 	// prepare statement
-	stmt, err := fs.db.Prepare(query)
+	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
 		return
