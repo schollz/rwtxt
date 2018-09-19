@@ -144,6 +144,16 @@ CY.loadEditor = function () {
 
 document.getElementById("editable").addEventListener('input', CY.debounce(CY.contentEdited, 200));
 
+// allow tabs
+document.getElementById("editable").onkeydown = function(e) {
+    if(e.keyCode==9 || e.which==9 || e.key == "Tab"){
+        e.preventDefault();
+        var s = this.selectionStart;
+        this.value = this.value.substring(0,this.selectionStart) + "\t" + this.value.substring(this.selectionEnd);
+        this.selectionEnd = s+1; 
+    }
+}
+
 editlink = document.getElementById("editlink")
 if (editlink != null) {
     editlink.addEventListener("click", CY.loadEditor);
