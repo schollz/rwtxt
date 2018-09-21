@@ -17,7 +17,7 @@ alt="Version"></a> </p>
 
 *rwtxt* builds off [cowyo](https://cowyo.com), a similar app I made previously. In improving with *rwtxt* I aimed to avoid [second-system syndrome](https://en.wikipedia.org/wiki/Second-system_effect): I got rid of features I never used in cowyo (self-destruction, encryption, locking), while integrating a useful new feature not available previously: you can create  *domains*. A *domain* is basically a personalized namespace where you can write private/public posts that are searchable. I personally use *rwtxt* to collect and jot notes for work, personal, coding - each which has its own searchable and indexed domain.
 
-*rwtxt* is backed by a single [sqlite3](https://www.sqlite.org/index.html) database, so its portable and very easy to backup. Its written in Go and all the assets are bundled so you can just download a single binary and start writing. You can also try the online version: [rwtxt.com](https://rwtxt.com/public).
+*rwtxt* is backed by a single [sqlite3](https://www.sqlite.org/index.html) database, so it's portable and very easy to backup. It's written in Go and all the assets are bundled so you can just download a single binary and start writing. You can also try the online version: [rwtxt.com](https://rwtxt.com/public).
 
 ## Usage
 
@@ -51,7 +51,7 @@ You can easily install and run *rwtxt* on your own computer.
 
 You can download a binary for the [latest release](https://github.com/schollz/rwtxt/releases/latest).
 
-Or you can install from source. First make sure to [install Go](https://golang.org/dl/). Then clone the repo:
+Or you can install from source. First, make sure to [install Go](https://golang.org/dl/). Then clone the repo:
 
 
 ```bash
