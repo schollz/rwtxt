@@ -19,6 +19,7 @@ const DefaultBind = ":8152"
 
 type RWTxt struct {
 	Bind             string // interface:port to listen on, defaults to DefaultBind.
+	config           Config
 	viewEditTemplate *template.Template
 	mainTemplate     *template.Template
 	loginTemplate    *template.Template
@@ -28,10 +29,15 @@ type RWTxt struct {
 	wsupgrader       websocket.Upgrader
 }
 
-func New(fs *db.FileSystem) (*RWTxt, error) {
+type Config struct {
+	Private bool
+}
+
+func New(fs *db.FileSystem, config Config) (*RWTxt, error) {
 	rwt := &RWTxt{
-		Bind: DefaultBind,
-		fs:   fs,
+		Bind:   DefaultBind,
+		fs:     fs,
+		config: config,
 		wsupgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -233,7 +239,7 @@ Disallow: /`))
 		return tr.handleUploads(w, r, tr.Page)
 	} else if tr.Domain != "" && tr.Page == "" {
 		if r.URL.Query().Get("q") != "" {
-			if tr.Domain == "public" {
+			if tr.Domain == "public" && !rwt.config.Private {
 				return tr.handleMain(w, r, "can't search public")
 			}
 			return tr.handleSearch(w, r, tr.Domain, r.URL.Query().Get("q"))
@@ -243,7 +249,7 @@ Disallow: /`))
 	} else if tr.Domain != "" && tr.Page != "" {
 		log.Debugf("[%s/%s]", tr.Domain, tr.Page)
 		if tr.Page == "list" {
-			if tr.Domain == "public" {
+			if tr.Domain == "public" && !rwt.config.Private {
 				return tr.handleMain(w, r, "can't list public")
 			}
 

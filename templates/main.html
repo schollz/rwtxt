@@ -17,7 +17,7 @@
 
 	<h1>{{if eq .Domain "public"}}Welcome{{else}}{{.Domain}}{{end}}</h1>
 	
-	{{if eq .Domain "public"}}
+	{{if and (eq .Domain "public") (not .PrivateEnvironment)}}
 	<p>This is <em>rwtxt</em>, a space for <em>reading and writing text</em> which you can use	as a blog, a pastebin, or a notepad.
 	</p>
 	{{end}}
@@ -46,7 +46,7 @@
 	<p>Write your rwtxt <a href="/{{.Domain}}/{{.RandomUUID}}">here</a>.</p>
 	{{end}}
 
-	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (ne .Domain "public") }}
+	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (or (ne .Domain "public") (.PrivateEnvironment)) }}
 	{{ if .Files }}
 	<h2>Most recent <small>(<a href="/{{.Domain}}/list">all posts</a>)</small></h2>
 	<ul>
