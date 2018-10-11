@@ -1,21 +1,14 @@
-# First build step
-FROM golang:1.11-alpine
+FROM golang:1.11-alpine as builder
+RUN apk add --no-cache git make g++ gzip
+RUN go get -v github.com/jteeuwen/go-bindata/go-bindata
+RUN go get -v github.com/tdewolff/minify/... 
+WORKDIR /go/rwtxt
+COPY . .
+RUN make
 
-#WORKDIR /go/src/github.com/schollz/rwtxt
-#COPY . .
-# Install git and make, compile and cleanup
-RUN apk add --no-cache git make g++ \
-    && go get -v github.com/jteeuwen/go-bindata/go-bindata \
-    && go get -v github.com/tdewolff/minify/... \
-    && git clone https://github.com/schollz/rwtxt.git \
-    && cd rwtxt \
-    && make \
-    && apk del --purge git make g++ \
-    && rm -rf /var/cache/apk* \
-    && mv /go/rwtxt/rwtxt /rwtxt \
-    && rm -rf /go
-
+FROM alpine:latest 
 VOLUME /data
-EXPOSE 8142
-# Start rwtxt listening on any host
-CMD ["/rwtxt","--db","/data/rwtxt.db"]
+EXPOSE 8152
+COPY --from=builder /go/bin/rwtxt /rwtxt
+ENTRYPOINT ["/rwtxt"]
+CMD ["--db","/data/rwtxt.db"]
