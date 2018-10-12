@@ -8,9 +8,9 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/rwtxt"
 	"github.com/schollz/rwtxt/pkg/db"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
@@ -26,6 +26,7 @@ func main() {
 		profileMemory = flag.Bool("memprofile", false, "profile memory")
 		database      = flag.String("db", "rwtxt.db", "name of the database")
 		listen        = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
+		private       = flag.Bool("private", false, "private setup (allows listing of public notes)")
 	)
 	flag.Parse()
 
@@ -66,7 +67,9 @@ func main() {
 		panic(err)
 	}
 
-	rwt, err := rwtxt.New(fs)
+	config := rwtxt.Config{Private: *private}
+
+	rwt, err := rwtxt.New(fs, config)
 	if err != nil {
 		panic(err)
 	}
