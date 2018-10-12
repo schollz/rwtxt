@@ -8,7 +8,7 @@
 src="https://img.shields.io/travis/schollz/rwtxt.svg?style=flat-square"
 alt="Build Status"></a> <a
 href="https://github.com/schollz/rwtxt/releases/latest"><img
-src="https://img.shields.io/badge/version-1.4.1-brightgreen.svg?style=flat-square"
+src="https://img.shields.io/badge/version-1.4.2-brightgreen.svg?style=flat-square"
 alt="Version"></a> </p>
 
 <p align="center">A cms for absolute minimalists. Try it at <a href="https://rwtxt.com/public">rwtxt.com</a>.</p>
@@ -70,6 +70,22 @@ And then run it!
 $ export PATH="${PATH}:${GOPATH}/bin"
 $ rwtxt
 ```
+
+### Docker
+
+You can also easily install and run with Docker. 
+
+```
+$ docker pull schollz/rwtxt
+```
+
+Then run by using docker
+
+```
+$ docker run -v /place/to/store/data:/data -p 8000:8152 schollz/rwtxt
+```
+
+In this case `-p 8000:8152` will have rwtxt will be running on port 8000.
 
 ## Notice
 
