@@ -209,7 +209,7 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 	}
 
 	tr.MostActiveList, _ = tr.rwt.fs.GetTopXMostViews(tr.Domain, 10)
-	tr.Title = "rwtxt"
+	tr.Title = tr.Domain
 	tr.Message = message
 	tr.DomainValue = template.HTMLAttr(`value="` + tr.Domain + `"`)
 
@@ -475,7 +475,17 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		}
 	}()
 
-	tr.Title = f.Slug
+	// make title
+	domain := tr.Domain
+	slug := f.Slug
+	if domain == "" {
+		domain = "public"
+	}
+	if slug == "" {
+		slug = f.ID
+	}
+	tr.Title = slug + " | " + domain
+
 	tr.Rendered = utils.RenderMarkdownToHTML(initialMarkdown)
 	tr.IntroText = template.JS(introText)
 	tr.Rows = len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1

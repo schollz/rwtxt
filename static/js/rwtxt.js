@@ -110,7 +110,7 @@ CY.serverResponse = function (jsonString) {
         if (newwindowname != undefined && newwindowname.length > 0 && "/" + newwindowname != window.location
             .pathname) {
             history.replaceState({}, newwindowname, newwindowname);
-            document.title = newwindowname;
+            document.title = newwindowname + " | " + window.rwtxt.domain;
         }
         document.getElementById("saved").style.display = 'inline-block';
         setTimeout(function () {
