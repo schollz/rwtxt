@@ -29,6 +29,9 @@ build:
 	go-bindata -pkg rwtxt -nocompress assets assets/img assets/js assets/css assets/img/favicon
 	go get -v --tags "fts4" ${LDFLAGS} ./...
 
+exec: build
+	cd cmd/rwtxt && go build -v --tags "fts4" ${LDFLAGS} && cp rwtxt ../../
+
 run: build
 	$(GOPATH)/bin/rwtxt
 
