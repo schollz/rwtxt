@@ -6,6 +6,7 @@ const socketMessageListener = (event) => {
 };
 const socketOpenListener = (event) => {
     // console.log('Connected');
+    document.getElementById("notsaved").style.display = 'none';
     document.getElementById("connectedicon").style.display = 'inline-block';
     setTimeout(function () {
         document.getElementById("connectedicon").style.display = 'none';
@@ -14,6 +15,7 @@ const socketOpenListener = (event) => {
 const socketCloseListener = (event) => {
     if (socket) {
         console.error('Disconnected.');
+        document.getElementById("notsaved").style.display = 'inline-block';
     }
     var url = window.origin.replace("http", "ws") + '/ws';
     socket = new WebSocket(url);
