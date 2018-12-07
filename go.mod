@@ -3,6 +3,7 @@ module github.com/schollz/rwtxt
 require (
 	github.com/DavidBelicza/TextRank v2.1.1+incompatible
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
+	github.com/disintegration/imaging v1.5.0
 	github.com/dustin/go-humanize v0.0.0-20180713052910-9f541cc9db5d // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/gorilla/websocket v1.4.0
@@ -21,6 +22,7 @@ require (
 	github.com/tdewolff/minify v2.3.6+incompatible // indirect
 	github.com/tdewolff/parse v2.3.3+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
+	golang.org/x/image v0.0.0-20181116024801-cd38e8056d9b // indirect
 	golang.org/x/net v0.0.0-20180911220305-26e67e76b6c3 // indirect
 	golang.org/x/sys v0.0.0-20180909124046-d0be0721c37e // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.0

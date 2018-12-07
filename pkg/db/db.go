@@ -154,6 +154,24 @@ func (fs *FileSystem) InitializeDB(dump bool) (err error) {
 		err = errors.Wrap(err, "creating similarities table")
 	}
 
+	sqlStmt = `DROP TABLE IF EXISTS	cached_images;`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "dropping cached_images table")
+	}
+
+	sqlStmt = `CREATE TABLE IF NOT EXISTS
+	cached_images (
+		id TEXT NOT NULL PRIMARY KEY,
+		name TEXT,
+		data BLOB,
+		views INTEGER DEFAULT 0
+	);`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating cached_images table")
+	}
+
 	domainid, _, _, _ := fs.getDomainFromName("public")
 	if domainid == 0 {
 		fs.setDomain("public", "")
@@ -242,6 +260,82 @@ func (fs *FileSystem) SaveBlob(id string, name string, blob []byte) (err error) 
 	if err != nil {
 		return errors.Wrap(err, "commit SaveBlob")
 	}
+	return
+}
+
+// SaveResizedImage will save a resized image
+func (fs *FileSystem) SaveResizedImage(id string, name string, blob []byte) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	tx, err := fs.DB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin SaveResizedImage")
+	}
+	stmt, err := tx.Prepare(`
+	INSERT OR REPLACE INTO
+		cached_images
+	(
+		id,
+		name,
+		data
+	) 
+		VALUES 	
+	(
+		?,
+		?,
+		?
+	)`)
+	if err != nil {
+		return errors.Wrap(err, "stmt SaveResizedImage")
+	}
+	_, err = stmt.Exec(
+		id, name, blob,
+	)
+	if err != nil {
+		return errors.Wrap(err, "exec SaveResizedImage")
+	}
+	defer stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit SaveResizedImage")
+	}
+	return
+}
+
+// GetResizedImage will resize an image (if it hasn't already been cached) return it
+func (fs *FileSystem) GetResizedImage(id string) (name string, data []byte, views int, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	stmt, err := fs.DB.Prepare("SELECT name,data,views FROM cached_images WHERE id = ?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	err = stmt.QueryRow(id).Scan(&name, &data, &views)
+	if err != nil {
+		return
+	}
+
+	log.Debugf("id :%s, views: %d", id, views)
+
+	// update the views
+	tx, err := fs.DB.Begin()
+	if err != nil {
+		return
+	}
+	stmt, err = tx.Prepare("UPDATE blobs SET views=? WHERE id=?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(views+1, id)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+
 	return
 }
 

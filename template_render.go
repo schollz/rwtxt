@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/disintegration/imaging"
 	"html/template"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"net/url"
@@ -508,6 +511,70 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if tr.rwt.resizeImageWidth > 0 && (strings.Contains(strings.ToLower(name), ".jpg") || strings.Contains(strings.ToLower(name), ".jpeg")) {
+		// Get resized image
+		name, data, _, err = tr.rwt.fs.GetResizedImage(id)
+		if err != nil && err != sql.ErrNoRows {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Create if not exists
+		if err != nil && err == sql.ErrNoRows {
+			log.Debug("resizing image ", id)
+
+			var bigImgBytes []byte
+			name, bigImgBytes, _, err = tr.rwt.fs.GetBlob(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			r, err := gzip.NewReader(bytes.NewReader(bigImgBytes))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+
+			var buf bytes.Buffer
+			_, err = buf.ReadFrom(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+
+			img, err := jpeg.Decode(&buf)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+
+			img = imaging.Resize(img, tr.rwt.resizeImageWidth, 0, imaging.Lanczos)
+
+			var bufout bytes.Buffer
+			gw := gzip.NewWriter(&bufout)
+			err = jpeg.Encode(gw, img, nil)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+			err = gw.Flush()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+
+			err = tr.rwt.fs.SaveResizedImage(id, name, bufout.Bytes())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+
+			data = bufout.Bytes()
+		}
+
 	}
 
 	w.Header().Set("Vary", "Accept-Encoding")
