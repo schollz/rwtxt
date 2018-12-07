@@ -23,7 +23,7 @@ func main() {
 		err              error
 		debug            = flag.Bool("debug", false, "debug mode")
 		showVersion      = flag.Bool("v", false, "show version")
-		resizeImageWidth = flag.Int("resizeimages", -1, "image width to resize")
+		resizeImageWidth = flag.Int("resizeimagewidth", -1, "image width to resize")
 		profileMemory    = flag.Bool("memprofile", false, "profile memory")
 		database         = flag.String("db", "rwtxt.db", "name of the database")
 		listen           = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
