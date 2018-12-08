@@ -21,9 +21,10 @@ var (
 func main() {
 	var (
 		err              error
+		resizeImageWidth = flag.Int("resizeimagewidth", -1, "image width to resize")
+		export           = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
 		debug            = flag.Bool("debug", false, "debug mode")
 		showVersion      = flag.Bool("v", false, "show version")
-		resizeImageWidth = flag.Int("resizeimagewidth", -1, "image width to resize")
 		profileMemory    = flag.Bool("memprofile", false, "profile memory")
 		database         = flag.String("db", "rwtxt.db", "name of the database")
 		listen           = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
@@ -69,6 +70,17 @@ func main() {
 	}
 
 	config := rwtxt.Config{Private: *private, ResizeImageWidth: *resizeImageWidth}
+	if *export {
+		err = fs.ExportPosts()
+		if err != nil {
+			panic(err)
+		}
+		err = fs.ExportUploads()
+		if err != nil {
+			panic(err)
+		}
+		return
+	}
 
 	rwt, err := rwtxt.New(fs, config)
 	if err != nil {
