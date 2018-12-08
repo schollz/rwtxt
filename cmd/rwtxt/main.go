@@ -7,6 +7,8 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/schollz/rwtxt/pkg/utils"
+
 	log "github.com/cihub/seelog"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/rwtxt"
@@ -21,6 +23,7 @@ var (
 func main() {
 	var (
 		err              error
+		hashpassword     = flag.String("hashpassword", "", "hash a password")
 		resizeImageWidth = flag.Int("resizeimagewidth", -1, "image width to resize")
 		export           = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
 		debug            = flag.Bool("debug", false, "debug mode")
@@ -47,6 +50,14 @@ func main() {
 		}()
 	}
 
+	if *hashpassword != "" {
+		hashed, err := utils.HashPassword(*hashpassword)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(hashed)
+		return
+	}
 	if *showVersion {
 		fmt.Println(Version)
 		return
