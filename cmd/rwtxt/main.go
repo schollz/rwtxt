@@ -7,6 +7,8 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/schollz/rwtxt/pkg/utils"
+
 	log "github.com/cihub/seelog"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/rwtxt"
