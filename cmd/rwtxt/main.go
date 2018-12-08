@@ -8,9 +8,9 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/rwtxt"
 	"github.com/schollz/rwtxt/pkg/db"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
@@ -21,6 +21,7 @@ var (
 func main() {
 	var (
 		err           error
+		export        = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
 		debug         = flag.Bool("debug", false, "debug mode")
 		showVersion   = flag.Bool("v", false, "show version")
 		profileMemory = flag.Bool("memprofile", false, "profile memory")
@@ -65,6 +66,18 @@ func main() {
 	fs, err := db.New(dbName)
 	if err != nil {
 		panic(err)
+	}
+
+	if *export {
+		err = fs.ExportPosts()
+		if err != nil {
+			panic(err)
+		}
+		err = fs.ExportUploads()
+		if err != nil {
+			panic(err)
+		}
+		return
 	}
 
 	config := rwtxt.Config{Private: *private}

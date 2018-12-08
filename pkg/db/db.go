@@ -2,11 +2,16 @@ package db
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"html/template"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -243,6 +248,150 @@ func (fs *FileSystem) SaveBlob(id string, name string, blob []byte) (err error) 
 		return errors.Wrap(err, "commit SaveBlob")
 	}
 	return
+}
+
+// ExportPosts will save posts to {{TIMESTAMP}}-posts.gz
+func (fs *FileSystem) ExportPosts() error {
+	domains, err := fs.GetDomains()
+	if err != nil {
+		return err
+	}
+
+	dir := os.TempDir()
+	postPaths := []string{}
+	for _, domain := range domains {
+		files, err := fs.GetAll(domain)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			fname := (fmt.Sprintf("%s-%s.md", file.Slug, file.ID))
+			r := strings.NewReader(file.Data)
+			if err != nil {
+				return err
+			}
+			var buf bytes.Buffer
+			_, err = buf.ReadFrom(r)
+			if err != nil {
+				return err
+			}
+			err = os.MkdirAll(filepath.Join(dir, domain), os.ModePerm)
+			if err != nil {
+				return err
+			}
+			fpath := filepath.Join(dir, domain, fname)
+			err = ioutil.WriteFile(fpath, buf.Bytes(), os.ModePerm)
+			if err != nil {
+				return err
+			}
+
+			postPaths = append(postPaths, fpath)
+		}
+	}
+	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
+	for _, f := range postPaths {
+		log.Debug(f)
+	}
+	utils.ZipFiles(fmt.Sprintf("%s-posts.zip", timestamp), postPaths)
+	return nil
+
+}
+
+// ExportUploads will save uploads to {{TIMESTAMP}}-uploads.gz
+func (fs *FileSystem) ExportUploads() error {
+	dir := os.TempDir()
+	files := []string{}
+
+	ids, err := fs.GetBlobIDs()
+	if err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		name, data, _, err := fs.GetBlob(id)
+		if err != nil {
+			return err
+		}
+		fname := fmt.Sprintf("%s-%s", id, name)
+
+		r, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+		var buf bytes.Buffer
+		_, err = buf.ReadFrom(r)
+		if err != nil {
+			return err
+		}
+		fpath := filepath.Join(dir, fname)
+		err = ioutil.WriteFile(fpath, buf.Bytes(), os.ModePerm)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, fpath)
+	}
+
+	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
+	for _, f := range files {
+		log.Debug(f)
+	}
+	utils.ZipFiles(fmt.Sprintf("%s-uploads.zip", timestamp), files)
+	return nil
+}
+
+// GetBlobIDs will return a list of blob ids
+func (fs *FileSystem) GetBlobIDs() ([]string, error) {
+	fs.Lock()
+	defer fs.Unlock()
+	stmt, err := fs.DB.Prepare(`SELECT id FROM blobs`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	result := []string{}
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var id string
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, id)
+	}
+
+	return result, nil
+}
+
+// GetDomains will return a list of domains
+func (fs *FileSystem) GetDomains() ([]string, error) {
+	fs.Lock()
+	defer fs.Unlock()
+	stmt, err := fs.DB.Prepare(`SELECT name FROM domains`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	result := []string{}
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var domain string
+		err = rows.Scan(&domain)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, domain)
+	}
+
+	return result, nil
 }
 
 // GetBlob will save a blob
