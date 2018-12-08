@@ -20,14 +20,16 @@ var (
 
 func main() {
 	var (
-		err              error
-		debug            = flag.Bool("debug", false, "debug mode")
-		showVersion      = flag.Bool("v", false, "show version")
-		resizeImageWidth = flag.Int("resizeimagewidth", -1, "image width to resize")
-		profileMemory    = flag.Bool("memprofile", false, "profile memory")
-		database         = flag.String("db", "rwtxt.db", "name of the database")
-		listen           = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
-		private          = flag.Bool("private", false, "private setup (allows listing of public notes)")
+		err             error
+		resizeWidth     = flag.Int("resizewidth", -1, "image width to resize on the fly")
+		resizeOnUpload  = flag.Bool("resizeonupload", false, "resize on upload")
+		resizeOnRequest = flag.Bool("resizeonrequest", false, "resize on request")
+		debug           = flag.Bool("debug", false, "debug mode")
+		showVersion     = flag.Bool("v", false, "show version")
+		profileMemory   = flag.Bool("memprofile", false, "profile memory")
+		database        = flag.String("db", "rwtxt.db", "name of the database")
+		listen          = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
+		private         = flag.Bool("private", false, "private setup (allows listing of public notes)")
 	)
 	flag.Parse()
 
@@ -68,7 +70,11 @@ func main() {
 		panic(err)
 	}
 
-	config := rwtxt.Config{Private: *private, ResizeImageWidth: *resizeImageWidth}
+	config := rwtxt.Config{Private: *private,
+		ResizeWidth:     *resizeWidth,
+		ResizeOnRequest: *resizeOnRequest,
+		ResizeOnUpload:  *resizeOnUpload,
+	}
 
 	rwt, err := rwtxt.New(fs, config)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"image/jpeg"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -512,8 +513,10 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	if tr.rwt.resizeImageWidth > 0 && (strings.Contains(strings.ToLower(name), ".jpg") || strings.Contains(strings.ToLower(name), ".jpeg")) {
+	log.Debug("ResizeOnRequest", tr.rwt.ResizeOnRequest)
+	log.Debug("ResizeWidth", tr.rwt.ResizeWidth)
+	log.Debug("name", name)
+	if tr.rwt.ResizeWidth > 0 && tr.rwt.ResizeOnRequest && (strings.Contains(strings.ToLower(name), ".jpg") || strings.Contains(strings.ToLower(name), ".jpeg")) {
 		// Get resized image
 		name, data, _, err = tr.rwt.fs.GetResizedImage(id)
 		if err != nil && err != sql.ErrNoRows {
@@ -551,7 +554,7 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 				return err
 			}
 
-			img = imaging.Resize(img, tr.rwt.resizeImageWidth, 0, imaging.Lanczos)
+			img = imaging.Resize(img, tr.rwt.ResizeWidth, 0, imaging.Lanczos)
 
 			var bufout bytes.Buffer
 			gw := gzip.NewWriter(&bufout)
@@ -611,34 +614,84 @@ func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (
 	}
 	defer file.Close()
 
-	h := sha256.New()
-	if _, err = io.Copy(h, file); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	id := fmt.Sprintf("sha256-%x", h.Sum(nil))
+	if tr.rwt.ResizeWidth > 0 && tr.rwt.ResizeOnUpload && (strings.Contains(strings.ToLower(info.Filename), ".jpg") || strings.Contains(strings.ToLower(info.Filename), ".jpeg")) {
+		log.Debug("process jpg upload")
+		img, err := jpeg.Decode(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return err
+		}
 
-	// copy file to buffer
-	file.Seek(0, io.SeekStart)
-	var fileData bytes.Buffer
-	gzipWriter := gzip.NewWriter(&fileData)
-	_, err = io.Copy(gzipWriter, file)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	gzipWriter.Close()
+		img = imaging.Resize(img, tr.rwt.ResizeWidth, 0, imaging.Lanczos)
 
-	// save file
-	err = tr.rwt.fs.SaveBlob(id, info.Filename, fileData.Bytes())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		var bufout bytes.Buffer
+		err = jpeg.Encode(&bufout, img, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return err
+		}
 
-	w.Header().Set("Location", "/uploads/"+id+"?filename="+url.QueryEscape(info.Filename))
-	_, err = w.Write([]byte("ok"))
-	return
+		h := sha256.New()
+		h.Write(bufout.Bytes())
+		id := fmt.Sprintf("sha256-%x", h.Sum(nil))
+
+		var fileData bytes.Buffer
+		gw := gzip.NewWriter(&fileData)
+		_, err = io.Copy(gw, bytes.NewBuffer(bufout.Bytes()))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+		err = gw.Close()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		err = tr.rwt.fs.SaveBlob(id, info.Filename, fileData.Bytes())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		w.Header().Set("Location", "/uploads/"+id+"?filename="+url.QueryEscape(info.Filename))
+		_, err = w.Write([]byte("ok"))
+		return err
+	} else {
+		log.Debug("process standard upload")
+		b, err := ioutil.ReadAll(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+		h := sha256.New()
+		h.Write(b)
+		id := fmt.Sprintf("sha256-%x", h.Sum(nil))
+
+		var fileData bytes.Buffer
+		gw := gzip.NewWriter(&fileData)
+		_, err = io.Copy(gw, bytes.NewReader(b))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+		err = gw.Close()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		// save file
+		err = tr.rwt.fs.SaveBlob(id, info.Filename, fileData.Bytes())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		w.Header().Set("Location", "/uploads/"+id+"?filename="+url.QueryEscape(info.Filename))
+		_, err = w.Write([]byte("ok"))
+		return err
+	}
 }
 
 func (tr *TemplateRender) handleExport(w http.ResponseWriter, r *http.Request) (err error) {
