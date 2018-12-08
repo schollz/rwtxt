@@ -8,9 +8,9 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/schollz/rwtxt"
 	"github.com/schollz/rwtxt/pkg/db"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
@@ -21,6 +21,7 @@ var (
 func main() {
 	var (
 		err           error
+		hashpassword  = flag.String("hashpassword", "", "hash a password")
 		debug         = flag.Bool("debug", false, "debug mode")
 		showVersion   = flag.Bool("v", false, "show version")
 		profileMemory = flag.Bool("memprofile", false, "profile memory")
@@ -45,6 +46,14 @@ func main() {
 		}()
 	}
 
+	if *hashpassword != "" {
+		hashed, err := utils.HashPassword(*hashpassword)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(hashed)
+		return
+	}
 	if *showVersion {
 		fmt.Println(Version)
 		return
