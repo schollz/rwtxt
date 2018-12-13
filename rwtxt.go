@@ -27,17 +27,26 @@ type RWTxt struct {
 	prismTemplate    []string
 	fs               *db.FileSystem
 	wsupgrader       websocket.Upgrader
+	ResizeWidth      int
+	ResizeOnUpload   bool
+	ResizeOnRequest  bool
 }
 
 type Config struct {
-	Private bool
+	Private         bool
+	ResizeWidth     int
+	ResizeOnUpload  bool
+	ResizeOnRequest bool
 }
 
 func New(fs *db.FileSystem, config Config) (*RWTxt, error) {
 	rwt := &RWTxt{
-		Bind:   DefaultBind,
-		fs:     fs,
-		config: config,
+		Bind:            DefaultBind,
+		fs:              fs,
+		config:          config,
+		ResizeOnUpload:  config.ResizeOnUpload,
+		ResizeOnRequest: config.ResizeOnRequest,
+		ResizeWidth:     config.ResizeWidth,
 		wsupgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
