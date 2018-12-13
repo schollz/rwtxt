@@ -12,9 +12,11 @@
 *.out
 
 # Intermediate build artifacts
+/*.zip
 /assets
 /bindata.go
 /go.sum
+/vendor
 
 # RWTxt databases
 *db

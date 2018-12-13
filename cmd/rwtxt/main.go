@@ -21,6 +21,7 @@ var (
 func main() {
 	var (
 		err             error
+		export        = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
 		resizeWidth     = flag.Int("resizewidth", -1, "image width to resize on the fly")
 		resizeOnUpload  = flag.Bool("resizeonupload", false, "resize on upload")
 		resizeOnRequest = flag.Bool("resizeonrequest", false, "resize on request")
@@ -68,6 +69,18 @@ func main() {
 	fs, err := db.New(dbName)
 	if err != nil {
 		panic(err)
+	}
+
+	if *export {
+		err = fs.ExportPosts()
+		if err != nil {
+			panic(err)
+		}
+		err = fs.ExportUploads()
+		if err != nil {
+			panic(err)
+		}
+		return
 	}
 
 	config := rwtxt.Config{Private: *private,
