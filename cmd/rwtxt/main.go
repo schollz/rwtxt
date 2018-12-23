@@ -21,7 +21,7 @@ var (
 func main() {
 	var (
 		err             error
-		export        = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
+		export          = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
 		resizeWidth     = flag.Int("resizewidth", -1, "image width to resize on the fly")
 		resizeOnUpload  = flag.Bool("resizeonupload", false, "resize on upload")
 		resizeOnRequest = flag.Bool("resizeonrequest", false, "resize on request")
@@ -29,8 +29,9 @@ func main() {
 		showVersion     = flag.Bool("v", false, "show version")
 		profileMemory   = flag.Bool("memprofile", false, "profile memory")
 		database        = flag.String("db", "rwtxt.db", "name of the database")
-		listen          = flag.String("listen", rwtxt.DefaultBind, "interface:port to listen on")
+		listen          = flag.String("listen", ":8152", "interface:port to listen on")
 		private         = flag.Bool("private", false, "private setup (allows listing of public notes)")
+		created         = flag.Bool("created", false, "order by date created rather than date modified")
 	)
 	flag.Parse()
 
@@ -83,18 +84,18 @@ func main() {
 		return
 	}
 
-	config := rwtxt.Config{Private: *private,
+	config := rwtxt.Config{
+		Bind:            *listen,
+		Private:         *private,
 		ResizeWidth:     *resizeWidth,
 		ResizeOnRequest: *resizeOnRequest,
 		ResizeOnUpload:  *resizeOnUpload,
+		OrderByCreated:  *created,
 	}
 
 	rwt, err := rwtxt.New(fs, config)
 	if err != nil {
 		panic(err)
-	}
-	if listen != nil && *listen != "" {
-		rwt.Bind = *listen
 	}
 
 	err = rwt.Serve()

@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/disintegration/imaging"
 	"html/template"
 	"image/jpeg"
 	"io"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/disintegration/imaging"
 
 	log "github.com/cihub/seelog"
 	"github.com/schollz/rwtxt/pkg/db"
@@ -57,6 +58,7 @@ type TemplateRender struct {
 	Languages          []string
 	LanguageJS         []template.JS
 	rwt                *RWTxt
+	RWTxtConfig        Config
 }
 
 type Payload struct {
@@ -110,7 +112,8 @@ func init() {
 
 func NewTemplateRender(rwt *RWTxt) *TemplateRender {
 	tr := &TemplateRender{
-		rwt: rwt,
+		rwt:         rwt,
+		RWTxtConfig: rwt.Config,
 	}
 	return tr
 }
@@ -204,10 +207,10 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 		signedin = false
 	}
 	tr.SignedIn = signedin
-	tr.DomainIsPrivate = !ispublic && (tr.Domain != "public" || tr.rwt.config.Private)
-	tr.PrivateEnvironment = tr.rwt.config.Private
+	tr.DomainIsPrivate = !ispublic && (tr.Domain != "public" || tr.rwt.Config.Private)
+	tr.PrivateEnvironment = tr.rwt.Config.Private
 	tr.DomainExists = domainErr == nil
-	tr.Files, err = tr.rwt.fs.GetTopX(tr.Domain, 10)
+	tr.Files, err = tr.rwt.fs.GetTopX(tr.Domain, 10, tr.RWTxtConfig.OrderByCreated)
 	if err != nil {
 		log.Debug(err)
 	}
@@ -513,10 +516,10 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Debug("ResizeOnRequest", tr.rwt.ResizeOnRequest)
-	log.Debug("ResizeWidth", tr.rwt.ResizeWidth)
+	log.Debug("ResizeOnRequest", tr.rwt.Config.ResizeOnRequest)
+	log.Debug("ResizeWidth", tr.rwt.Config.ResizeWidth)
 	log.Debug("name", name)
-	if tr.rwt.ResizeWidth > 0 && tr.rwt.ResizeOnRequest && (strings.Contains(strings.ToLower(name), ".jpg") || strings.Contains(strings.ToLower(name), ".jpeg")) {
+	if tr.rwt.Config.ResizeWidth > 0 && tr.rwt.Config.ResizeOnRequest && (strings.Contains(strings.ToLower(name), ".jpg") || strings.Contains(strings.ToLower(name), ".jpeg")) {
 		// Get resized image
 		name, data, _, err = tr.rwt.fs.GetResizedImage(id)
 		if err != nil && err != sql.ErrNoRows {
@@ -554,7 +557,7 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 				return err
 			}
 
-			img = imaging.Resize(img, tr.rwt.ResizeWidth, 0, imaging.Lanczos)
+			img = imaging.Resize(img, tr.rwt.Config.ResizeWidth, 0, imaging.Lanczos)
 
 			var bufout bytes.Buffer
 			gw := gzip.NewWriter(&bufout)
@@ -614,7 +617,7 @@ func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (
 	}
 	defer file.Close()
 
-	if tr.rwt.ResizeWidth > 0 && tr.rwt.ResizeOnUpload && (strings.Contains(strings.ToLower(info.Filename), ".jpg") || strings.Contains(strings.ToLower(info.Filename), ".jpeg")) {
+	if tr.rwt.Config.ResizeWidth > 0 && tr.rwt.Config.ResizeOnUpload && (strings.Contains(strings.ToLower(info.Filename), ".jpg") || strings.Contains(strings.ToLower(info.Filename), ".jpeg")) {
 		log.Debug("process jpg upload")
 		img, err := jpeg.Decode(file)
 		if err != nil {
@@ -622,7 +625,7 @@ func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (
 			return err
 		}
 
-		img = imaging.Resize(img, tr.rwt.ResizeWidth, 0, imaging.Lanczos)
+		img = imaging.Resize(img, tr.rwt.Config.ResizeWidth, 0, imaging.Lanczos)
 
 		var bufout bytes.Buffer
 		err = jpeg.Encode(&bufout, img, nil)
@@ -702,7 +705,7 @@ func (tr *TemplateRender) handleExport(w http.ResponseWriter, r *http.Request) (
 	if !tr.SignedIn {
 		return tr.handleMain(w, r, "must sign in")
 	}
-	files, _ := tr.rwt.fs.GetAll(tr.Domain)
+	files, _ := tr.rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderByCreated)
 	for i := range files {
 		files[i].DataHTML = template.HTML("")
 	}

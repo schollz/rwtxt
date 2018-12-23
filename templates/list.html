@@ -9,7 +9,7 @@
     {{range .Files}}
     <p>
         <a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
-        <small class="grey">{{.Modified.Format "Jan 2 3:04pm 2006"}}</small>
+        <small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.Created.Format "Jan 2 3:04pm 2006"}}{{else}}{{.Modified.Format "Jan 2 3:04pm 2006"}}{{end}}</small>
         
         <blockquote><em>{{.DataHTML}}</em></blockquote>
     </p>

@@ -18,8 +18,7 @@ import (
 const DefaultBind = ":8152"
 
 type RWTxt struct {
-	Bind             string // interface:port to listen on, defaults to DefaultBind.
-	config           Config
+	Config           Config
 	viewEditTemplate *template.Template
 	mainTemplate     *template.Template
 	loginTemplate    *template.Template
@@ -27,26 +26,27 @@ type RWTxt struct {
 	prismTemplate    []string
 	fs               *db.FileSystem
 	wsupgrader       websocket.Upgrader
-	ResizeWidth      int
-	ResizeOnUpload   bool
-	ResizeOnRequest  bool
 }
 
 type Config struct {
+	Bind            string // interface:port to listen on, defaults to DefaultBind.
 	Private         bool
 	ResizeWidth     int
 	ResizeOnUpload  bool
 	ResizeOnRequest bool
+	OrderByCreated  bool
 }
 
-func New(fs *db.FileSystem, config Config) (*RWTxt, error) {
+func New(fs *db.FileSystem, configUser ...Config) (*RWTxt, error) {
+	config := Config{
+		Bind: ":8152",
+	}
+	if len(configUser) > 0 {
+		config = configUser[0]
+	}
 	rwt := &RWTxt{
-		Bind:            DefaultBind,
-		fs:              fs,
-		config:          config,
-		ResizeOnUpload:  config.ResizeOnUpload,
-		ResizeOnRequest: config.ResizeOnRequest,
-		ResizeWidth:     config.ResizeWidth,
+		Config: config,
+		fs:     fs,
 		wsupgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -128,9 +128,9 @@ func (rwt *RWTxt) Serve() (err error) {
 			}
 		}
 	}()
-	log.Infof("listening on %v", rwt.Bind)
+	log.Infof("listening on %v", rwt.Config.Bind)
 	http.HandleFunc("/", rwt.Handler)
-	return http.ListenAndServe(rwt.Bind, nil)
+	return http.ListenAndServe(rwt.Config.Bind, nil)
 }
 
 func (rwt *RWTxt) isSignedIn(w http.ResponseWriter, r *http.Request, domain string) (signedin bool, domainkey string, defaultDomain string, domainList []string, domainKeys map[string]string) {
@@ -248,7 +248,7 @@ Disallow: /`))
 		return tr.handleUploads(w, r, tr.Page)
 	} else if tr.Domain != "" && tr.Page == "" {
 		if r.URL.Query().Get("q") != "" {
-			if tr.Domain == "public" && !rwt.config.Private {
+			if tr.Domain == "public" && !rwt.Config.Private {
 				return tr.handleMain(w, r, "can't search public")
 			}
 			return tr.handleSearch(w, r, tr.Domain, r.URL.Query().Get("q"))
@@ -258,11 +258,11 @@ Disallow: /`))
 	} else if tr.Domain != "" && tr.Page != "" {
 		log.Debugf("[%s/%s]", tr.Domain, tr.Page)
 		if tr.Page == "list" {
-			if tr.Domain == "public" && !rwt.config.Private {
+			if tr.Domain == "public" && !rwt.Config.Private {
 				return tr.handleMain(w, r, "can't list public")
 			}
 
-			files, _ := rwt.fs.GetAll(tr.Domain)
+			files, _ := rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderByCreated)
 			for i := range files {
 				files[i].Data = ""
 				files[i].DataHTML = template.HTML("")
