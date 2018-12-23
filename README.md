@@ -8,7 +8,7 @@
 src="https://img.shields.io/travis/schollz/rwtxt.svg?style=flat-square"
 alt="Build Status"></a> <a
 href="https://github.com/schollz/rwtxt/releases/latest"><img
-src="https://img.shields.io/badge/version-1.5.0-brightgreen.svg?style=flat-square"
+src="https://img.shields.io/badge/version-1.6.0-brightgreen.svg?style=flat-square"
 alt="Version"></a> </p>
 
 <p align="center">A cms for absolute minimalists. Try it at <a href="https://rwtxt.com/public">rwtxt.com</a>.</p>
@@ -28,7 +28,7 @@ You can easily [create your own domain](https://rwtxt.com/public) in 10 seconds.
 Once you make a domain you will see an option to make your domain *public* so that anyone can view/search it. However, only people with the domain password can edit in your domain - making *rwtxt* useful as a password-protected wiki. (The one exception is the [`/public`](https://rwtxt.com/public) domain, which anyone can edit/view - making *rwtxt* useful as a pastebin).
 
 
-**Writing.** To write in *rwtxt*, just create a new page and click "Edit", or goto a URL for the thing you want to write about - like `rwtxt.com/something-i-want-to-write`. When you write in *rwtxt* you can format your text in [Markdown](https://guides.github.com/features/mastering-markdown/).
+**Writing.** To write in *rwtxt*, just create a new page and click "Edit", or goto a URL for the thing you want to write about - like [rwtxt.com/public/write-something](https://rwtxt.com/public/write-something). When you write in *rwtxt* you can format your text in [Markdown](https://guides.github.com/features/mastering-markdown/).
 
 In addition, writing triple backtick code blocks:
 
