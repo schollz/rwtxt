@@ -412,7 +412,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}()
 
 	timerStart := time.Now()
-	havePage, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
+	pageID, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
 	if err != nil {
 		return
 	}
@@ -429,13 +429,13 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}
 	log.Debugf("checked domain %s", time.Since(timerStart))
 
-	if havePage {
+	if pageID != "" {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			timerStart = time.Now()
-			tr.SimilarFiles, err = tr.rwt.fs.GetSimilar(f.ID)
+			tr.SimilarFiles, err = tr.rwt.fs.GetSimilar(pageID)
 			if err != nil {
 				log.Error(err)
 			}
@@ -444,7 +444,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 
 		var files []db.File
 		timerStart = time.Now()
-		files, err = tr.rwt.fs.Get(tr.Page, tr.Domain)
+		files, err = tr.rwt.fs.Get(pageID, tr.Domain)
 		if err != nil {
 			log.Error(err)
 			return tr.handleMain(w, r, err.Error())
