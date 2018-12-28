@@ -177,6 +177,27 @@ func (fs *FileSystem) InitializeDB(dump bool) (err error) {
 		err = errors.Wrap(err, "creating cached_images table")
 	}
 
+	sqlStmt = `CREATE INDEX IF NOT EXISTS
+	fsslugs ON fs(slug,domainid);`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating index")
+	}
+
+	sqlStmt = `CREATE INDEX IF NOT EXISTS
+	domainsname ON domains(name);`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating index")
+	}
+
+	sqlStmt = `CREATE INDEX IF NOT EXISTS
+	similarid ON similar(fsid);`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating index")
+	}
+
 	domainid, _, _, _ := fs.getDomainFromName("public")
 	if domainid == 0 {
 		fs.setDomain("public", "")
