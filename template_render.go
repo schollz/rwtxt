@@ -429,6 +429,21 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}
 	log.Debugf("checked domain %s", time.Since(timerStart))
 
+	trBytes, err := tr.rwt.fs.GetCacheHTML(pageID)
+	if err == nil {
+		err = json.Unmarshal(trBytes, &tr)
+		if err != nil {
+			log.Error(err)
+		} else {
+			log.Debug("using cache")
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("Content-Type", "text/html")
+			gz := gzip.NewWriter(w)
+			defer gz.Close()
+			return tr.rwt.viewEditTemplate.Execute(gz, tr)
+		}
+	}
+
 	if pageID != "" {
 		var wg sync.WaitGroup
 		wg.Add(1)

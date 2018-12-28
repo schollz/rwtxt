@@ -1044,14 +1044,13 @@ func (fs *FileSystem) GetCacheHTML(id string) (tr []byte, err error) {
 		// prepare statement
 		stmt, err := fs.DB.Prepare("SELECT modified FROM fs WHERE id=?")
 		if err != nil {
-			err = errors.Wrap(err, "preparing query: "+query)
+			err = errors.Wrap(err, "preparing query")
 			return
 		}
 
 		defer stmt.Close()
 		rows, err := stmt.Query(id)
 		if err != nil {
-			err = errors.Wrap(err, query)
 			return
 		}
 
@@ -1059,21 +1058,45 @@ func (fs *FileSystem) GetCacheHTML(id string) (tr []byte, err error) {
 		defer rows.Close()
 
 		for rows.Next() {
-			var stemp string
 			err = rows.Scan(
-				&stemp,
+				&fsLastModified,
 			)
-			if err != nil {
-				err = errors.Wrap(err, "getRows")
-				return
-			}
-			s = append(s, stemp)
+			return
 		}
-		err = rows.Err()
-		if err != nil {
-			err = errors.Wrap(err, "getRows")
-		}
+		err = fmt.Errorf("found nothing")
+		return
 	}(id)
+	if err != nil {
+		return
+	}
+
+	// prepare statement
+	stmt, err := fs.DB.Prepare("SELECT modified,tr FROM cached_html WHERE id=?")
+	if err != nil {
+		err = errors.Wrap(err, "preparing query")
+		return
+	}
+
+	defer stmt.Close()
+	rows, err := stmt.Query(id)
+	if err != nil {
+		return
+	}
+	// loop through rows
+	defer rows.Close()
+	var cacheLastModified time.Time
+	for rows.Next() {
+		err = rows.Scan(
+			&cacheLastModified,
+			&tr,
+		)
+		if err != nil {
+			return
+		}
+	}
+	if fsLastModified.After(cacheLastModified) {
+		err = fmt.Errorf("cache is not new")
+	}
 
 	return
 }
