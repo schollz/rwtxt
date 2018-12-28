@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/disintegration/imaging"
@@ -405,22 +406,45 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	// handle new page
 	// get edit url parameter
 	log.Debugf("loading %s", tr.Page)
-	havePage, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
+	timeStart := time.Now()
+	defer func() {
+		log.Debugf("loaded %s in %s", tr.Page, time.Since(timeStart))
+	}()
+
+	timerStart := time.Now()
+	pageID, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
 	if err != nil {
 		return
 	}
+	log.Debugf("checked havepage %s", time.Since(timerStart))
+
 	initialMarkdown := ""
 	var f db.File
 
 	// check if domain is public and exists
+	timerStart = time.Now()
 	_, ispublic, errGet := tr.rwt.fs.GetDomainFromName(tr.Domain)
 	if errGet == nil && !tr.SignedIn && !ispublic {
 		return tr.handleMain(w, r, "domain is not public, sign in first")
 	}
+	log.Debugf("checked domain %s", time.Since(timerStart))
 
-	if havePage {
+	if pageID != "" {
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			timerStart = time.Now()
+			tr.SimilarFiles, err = tr.rwt.fs.GetSimilar(pageID)
+			if err != nil {
+				log.Error(err)
+			}
+			log.Debugf("got %s similar in %s", tr.Page, time.Since(timerStart))
+		}()
+
 		var files []db.File
-		files, err = tr.rwt.fs.Get(tr.Page, tr.Domain)
+		timerStart = time.Now()
+		files, err = tr.rwt.fs.Get(pageID, tr.Domain)
 		if err != nil {
 			log.Error(err)
 			return tr.handleMain(w, r, err.Error())
@@ -430,10 +454,8 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		} else {
 			f = files[0]
 		}
-		tr.SimilarFiles, err = tr.rwt.fs.GetSimilar(f.ID)
-		if err != nil {
-			log.Error(err)
-		}
+		log.Debugf("got %s content in %s", tr.Page, time.Since(timerStart))
+		wg.Wait()
 	} else {
 		uuid := utils.UUID()
 		f = db.File{
@@ -483,6 +505,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}()
 
 	// make title
+	timerStart = time.Now()
 	domain := tr.Domain
 	slug := f.Slug
 	if domain == "" {
@@ -492,18 +515,17 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		slug = f.ID
 	}
 	tr.Title = slug + " | " + domain
-
 	tr.Rendered = utils.RenderMarkdownToHTML(initialMarkdown)
 	tr.IntroText = template.JS(introText)
 	tr.Rows = len(strings.Split(string(utils.RenderMarkdownToHTML(initialMarkdown)), "\n")) + 1
 	tr.EditOnly = strings.TrimSpace(f.Data) == ""
 	tr.Languages = utils.DetectMarkdownCodeBlockLanguages(initialMarkdown)
+	log.Debugf("processed %s content in %s", tr.Page, time.Since(timerStart))
 
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
-	log.Debug(strings.TrimSpace(f.Data))
 
 	return tr.rwt.viewEditTemplate.Execute(gz, tr)
 
