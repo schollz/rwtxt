@@ -1157,6 +1157,8 @@ func (fs *FileSystem) GetTopX(domain string, num int, created ...bool) (files []
 	INNER JOIN domains ON fs.domainid=domains.id
 	WHERE 
 		domains.name = ?
+		AND LENGTH(fts.data) > 0
+
 		`
 	if len(created) > 0 && created[0] {
 		q += "ORDER BY fs.created DESC"
