@@ -1116,14 +1116,10 @@ func (fs *FileSystem) GetAll(domain string, created ...bool) (files []File, err 
 
 // GetSimilar returns all the files for a given domain
 func (fs *FileSystem) GetSimilar(fileid string) (files []File, err error) {
-	fs.Lock()
-	defer fs.Unlock()
 	return fs.getAllFromPreparedQuery(`
 	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
 	INNER JOIN fts ON fs.id=fts.id 
 	WHERE 
-		LENGTH(fts.data) > 0
-	AND 
 		fs.id IN (
 			SELECT fsid_similar FROM similar WHERE fsid = ?
 		)
@@ -1140,7 +1136,6 @@ func (fs *FileSystem) GetTopX(domain string, num int, created ...bool) (files []
 	INNER JOIN domains ON fs.domainid=domains.id
 	WHERE 
 		domains.name = ?
-		AND LENGTH(fts.data) > 0
 		`
 	if len(created) > 0 && created[0] {
 		q += "ORDER BY fs.created DESC"
@@ -1173,8 +1168,13 @@ func (fs *FileSystem) Get(id string, domain string) (files []File, err error) {
 }
 
 func (fs *FileSystem) get(id string, domain string) (files []File, err error) {
-
-	files, err = fs.getAllFromPreparedQuery(`
+	haveID, err := fs.isID(id)
+	if err != nil {
+		err = errors.Wrap(err, "isID")
+		return
+	}
+	if haveID {
+		files, err = fs.getAllFromPreparedQuery(`
 		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
 		INNER JOIN fts ON fs.id=fts.id 
 		INNER JOIN domains ON fs.domainid=domains.id
@@ -1183,27 +1183,25 @@ func (fs *FileSystem) get(id string, domain string) (files []File, err error) {
 			AND
 			domains.name = ?
 		ORDER BY modified DESC`, id, domain)
-	if err != nil {
-		err = errors.Wrap(err, "get from id")
-		return
-	}
-	if len(files) > 0 {
-		return
-	}
-
-	files, err = fs.getAllFromPreparedQuery(`
-	SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views
-	FROM fs 
-	INNER JOIN fts ON fs.id=fts.id 
-	INNER JOIN domains ON fs.domainid=domains.id
-	WHERE 
-		fs.id IN (SELECT id FROM fs WHERE slug=?) 
-		AND
-		domains.name = ?
-		ORDER BY modified DESC`, id, domain)
-	if err != nil {
-		err = errors.Wrap(err, "get from slug")
-		return
+		if err != nil {
+			err = errors.Wrap(err, "get from id")
+			return
+		}
+	} else {
+		files, err = fs.getAllFromPreparedQuery(`
+		SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views
+		FROM fs 
+		INNER JOIN fts ON fs.id=fts.id 
+		INNER JOIN domains ON fs.domainid=domains.id
+		WHERE 
+			fs.id IN (SELECT id FROM fs WHERE slug=?) 
+			AND
+			domains.name = ?
+			ORDER BY modified DESC`, id, domain)
+		if err != nil {
+			err = errors.Wrap(err, "get from slug")
+			return
+		}
 	}
 	if len(files) > 0 {
 		return
@@ -1274,13 +1272,31 @@ func (fs *FileSystem) idExists(id string) (exists bool, err error) {
 	return
 }
 
+// isID returns whether specified ID exists exists
+func (fs *FileSystem) isID(id string) (exists bool, err error) {
+	files, err := fs.getAllFromPreparedQuerySingleString(`
+		SELECT id FROM fs WHERE id = ?`, id)
+	if err != nil {
+		err = errors.Wrap(err, "Exists")
+	}
+	if len(files) > 0 {
+		exists = true
+	}
+	return
+}
+
 // Exists returns whether specified id or slug exists
 func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) {
-	fs.Lock()
-	defer fs.Unlock()
+	timeStart := time.Now()
+	defer func() {
+		log.Debugf("checked exists %s/%s in %s", domain, id, time.Since(timeStart))
+	}()
+
+	// fs.Lock()
+	// defer fs.Unlock()
 
 	files, err := fs.getAllFromPreparedQuerySingleString(`
-		SELECT fs.id FROM fs INNER JOIN domains ON fs.domainid=domains.id WHERE fs.id = ? AND domains.name = ?`, id, domain)
+		SELECT id FROM fs WHERE id = ? AND domainid IN (SELECT id FROM domains WHERE name = ?)`, id, domain)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 		return
@@ -1291,9 +1307,7 @@ func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) 
 	}
 
 	files, err = fs.getAllFromPreparedQuerySingleString(`
-	SELECT fs.id FROM fs 
-	INNER JOIN domains ON fs.domainid=domains.id
-	WHERE fs.slug = ? AND domains.name = ?`, id, domain)
+	SELECT fs.id FROM fs WHERE fs.slug = ? AND fs.domainid IN (SELECT id FROM domains WHERE name = ?)`, id, domain)
 	if err != nil {
 		err = errors.Wrap(err, "Exists")
 		return
@@ -1306,6 +1320,11 @@ func (fs *FileSystem) Exists(id string, domain string) (exists bool, err error) 
 }
 
 func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{}) (files []File, err error) {
+	timeStart := time.Now()
+	defer func() {
+		log.Debugf("getAllFromPreparedQuery %s in %s", query, time.Since(timeStart))
+	}()
+
 	// prepare statement
 	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
@@ -1357,6 +1376,11 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 }
 
 func (fs *FileSystem) getAllFromPreparedQuerySingleString(query string, args ...interface{}) (s []string, err error) {
+	timeStart := time.Now()
+	defer func() {
+		log.Debugf("getAllFromPreparedQuerySingleString %s in %s", query, time.Since(timeStart))
+	}()
+
 	// prepare statement
 	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
