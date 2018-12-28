@@ -298,8 +298,19 @@ func (rwt *RWTxt) handlePrism(w http.ResponseWriter, r *http.Request) (err error
 
 func (rwt *RWTxt) handleStatic(w http.ResponseWriter, r *http.Request) (err error) {
 	page := r.URL.Path
+	e := `"` + r.URL.Path + `"`
+
+	//https://www.sanarias.com/blog/115LearningHTTPcachinginGo
 	w.Header().Set("Vary", "Accept-Encoding")
-	w.Header().Set("Cache-Control", "public, max-age=7776000")
+	w.Header().Set("Etag", e)
+	w.Header().Set("Cache-Control", "max-age=2592000") // 30 days
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if strings.Contains(match, e) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Encoding", "gzip")
 	if strings.HasPrefix(page, "/static") {
 		page = "assets/" + strings.TrimPrefix(page, "/static/")
