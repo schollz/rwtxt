@@ -522,6 +522,17 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	tr.Languages = utils.DetectMarkdownCodeBlockLanguages(initialMarkdown)
 	log.Debugf("processed %s content in %s", tr.Page, time.Since(timerStart))
 
+	go func() {
+		trBytes, err := json.Marshal(tr)
+		if err != nil {
+			log.Error(err)
+		}
+		err = tr.rwt.fs.SetCacheHTML(f.ID, trBytes)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)

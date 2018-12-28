@@ -177,6 +177,23 @@ func (fs *FileSystem) InitializeDB(dump bool) (err error) {
 		err = errors.Wrap(err, "creating cached_images table")
 	}
 
+	sqlStmt = `DROP TABLE IF EXISTS	cached_html;`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "dropping cached_html table")
+	}
+
+	sqlStmt = `CREATE TABLE IF NOT EXISTS
+	cached_html (
+		id TEXT NOT NULL PRIMARY KEY,
+		modified TIMESTAMP,
+		tr BLBOB
+	);`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating cached_html table")
+	}
+
 	sqlStmt = `CREATE INDEX IF NOT EXISTS
 	fsslugs ON fs(slug,domainid);`
 	_, err = fs.DB.Exec(sqlStmt)
@@ -987,6 +1004,77 @@ func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool) (err 
 	if err != nil {
 		return errors.Wrap(err, "commit Save")
 	}
+	return
+}
+
+// SetCacheHTML will set the html cache
+func (fs *FileSystem) SetCacheHTML(id string, tr []byte) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	tx, err := fs.DB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin SetCache")
+	}
+
+	stmt, err := tx.Prepare(`
+	INSERT OR REPLACE INTO cached_html (id,modified,tr) VALUES (?,?,?)`)
+	if err != nil {
+		return errors.Wrap(err, "stmt Save SetCache")
+	}
+
+	_, err = stmt.Exec(id, time.Now(), tr)
+	if err != nil {
+		return errors.Wrap(err, "exec Save SetCache")
+	}
+	defer stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit Save SetCache")
+	}
+	return
+}
+
+// SetCacheHTML will set the html cache
+func (fs *FileSystem) GetCacheHTML(id string) (tr []byte, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	fsLastModified, err := func(id string) (fsLastModified time.Time, err error) {
+		// prepare statement
+		stmt, err := fs.DB.Prepare("SELECT modified FROM fs WHERE id=?")
+		if err != nil {
+			err = errors.Wrap(err, "preparing query: "+query)
+			return
+		}
+
+		defer stmt.Close()
+		rows, err := stmt.Query(id)
+		if err != nil {
+			err = errors.Wrap(err, query)
+			return
+		}
+
+		// loop through rows
+		defer rows.Close()
+
+		for rows.Next() {
+			var stemp string
+			err = rows.Scan(
+				&stemp,
+			)
+			if err != nil {
+				err = errors.Wrap(err, "getRows")
+				return
+			}
+			s = append(s, stemp)
+		}
+		err = rows.Err()
+		if err != nil {
+			err = errors.Wrap(err, "getRows")
+		}
+	}(id)
+
 	return
 }
 
