@@ -762,3 +762,7 @@ func (tr *TemplateRender) handleExport(w http.ResponseWriter, r *http.Request) (
 	w.Write(js)
 	return
 }
+
+func replace(input, from, to string) string {
+	return strings.Replace(input, from, to, -1)
+}

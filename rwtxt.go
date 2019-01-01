@@ -56,6 +56,10 @@ func New(fs *db.FileSystem, configUser ...Config) (*RWTxt, error) {
 		},
 	}
 
+	funcMap := template.FuncMap{
+		"replace": replace,
+	}
+
 	var err error
 	headerFooter := []string{"assets/header.html", "assets/footer.html"}
 
@@ -72,7 +76,7 @@ func New(fs *db.FileSystem, configUser ...Config) (*RWTxt, error) {
 		return nil, err
 	}
 
-	rwt.mainTemplate = template.Must(template.New("main").Parse(string(b)))
+	rwt.mainTemplate = template.Must(template.New("main").Funcs(funcMap).Parse(string(b)))
 
 	err = templateAssets(headerFooter, rwt.mainTemplate)
 
