@@ -412,7 +412,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}()
 
 	timerStart := time.Now()
-	pageID, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
+	pageID, many, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
 	if err != nil {
 		return
 	}
@@ -459,7 +459,11 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 
 		var files []db.File
 		timerStart = time.Now()
-		files, err = tr.rwt.fs.Get(pageID, tr.Domain)
+		if !many {
+			files, err = tr.rwt.fs.Get(pageID, tr.Domain)
+		} else {
+			files, err = tr.rwt.fs.Get(tr.Page, tr.Domain)
+		}
 		if err != nil {
 			log.Error(err)
 			return tr.handleMain(w, r, err.Error())

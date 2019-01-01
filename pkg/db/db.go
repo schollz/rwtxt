@@ -1415,7 +1415,7 @@ func (fs *FileSystem) isID(id string) (exists bool, err error) {
 }
 
 // Exists returns whether specified id or slug exists
-func (fs *FileSystem) Exists(id string, domain string) (trueID string, err error) {
+func (fs *FileSystem) Exists(id string, domain string) (trueID string, many bool, err error) {
 	timeStart := time.Now()
 	defer func() {
 		log.Debugf("checked exists %s/%s in %s", domain, id, time.Since(timeStart))
@@ -1443,6 +1443,9 @@ func (fs *FileSystem) Exists(id string, domain string) (trueID string, err error
 	}
 	if len(ids) > 0 {
 		trueID = ids[0]
+	}
+	if len(ids) > 1 {
+		many = true
 	}
 
 	return
