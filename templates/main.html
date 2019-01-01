@@ -1,15 +1,10 @@
 {{template "header" .}}
 <div class="main" class="fonty">
-	{{if not (eq .Domain "public")}}
 	<div class="fr">
-	{{ if or (.SignedIn) (eq .Domain "public")}}
 	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>Write</a><br>
-	{{end}}
-	{{ if not .SignedIn}}
-	<a onclick="document.getElementById('id01').style.display='block'">Log in</a>
-	{{ end }}
+	Log <a onclick="document.getElementById('id01').style.display='block'">in</a>{{ if gt (len .DomainList) 1 }} / <a href="/logout?d={{.Domain}}">out</a>{{end}}
+	<br>
 	</div>
-	{{ end }}
 	
 	{{with .Message}}
 	<p style="color:red;"><em>{{.}}</em></p>
@@ -18,7 +13,7 @@
 	<h1>{{if eq .Domain "public"}}Welcome{{else}}{{.Domain}}{{end}}</h1>
 	
 	{{if and (eq .Domain "public") (not .PrivateEnvironment)}}
-	<p>This is <em>rwtxt</em>, a space for <em>reading and writing text</em> which you can use	as a blog, a pastebin, or a notepad.
+	<p>This is <em><a href="/rwtxt/about">rwtxt</a></em>, a space for <em>reading and writing text</em> which you can use	as a blog, a pastebin, or a notepad.
 	</p>
 	{{end}}
 
@@ -38,13 +33,6 @@
 		{{ if gt (len .DomainList) 1 }}
 		<p>You are currently signed into {{ range $index, $element := .DomainList}}{{if $index}}, {{end}}<a href="/{{$element}}">{{$element}}</a>{{end}} domains. You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.</p>
 		{{ end}}
-
-	{{if eq .Domain "public"}}
-	<p>Read more about rwtxt <a href="/rwtxt/about">here</a>.
-	</p>
-
-	<p>Write your rwtxt <a href="/{{.Domain}}/{{.RandomUUID}}">here</a>.</p>
-	{{end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (or (ne .Domain "public") (.PrivateEnvironment)) }}
 	{{ if .Files }}
