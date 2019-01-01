@@ -35,6 +35,12 @@
 		{{ end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (or (ne .Domain "public") (.PrivateEnvironment)) }}
+	<p>
+		<form action="/{{.Domain}}" method="get">
+			<input type="text" name="q" value="" size="35" placeholder="Search domain...">
+			<input class="button1" type="submit" value="Search">
+		</form>
+	</p>
 	{{ if .Files }}
 	<h2>Most recent <small>(<a href="/{{.Domain}}/list">all posts</a>)</small></h2>
 	<ul>
@@ -58,16 +64,11 @@
 			{{end}}
 		</ul>
 	{{end}}
-	<p>
-			<form action="/{{.Domain}}" method="get">
-				<input type="text" name="q" value="" size="35" placeholder="Search domain...">
-				<input class="button1" type="submit" value="Search">
-			</form>
-	</p>
+
 	{{end}}
 	{{ if and (.SignedIn) (ne .Domain "public")}}
-	<p>
-	<h2>Options</h2>
+	<details>
+	<summary>Options</summary>
 		  <form action="/update" method="post">
 		  <input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
 		  <input type="password" name="password" value="" placeholder="Update password">
@@ -76,7 +77,7 @@
 		  <input class="button1" type="submit" value="Submit">
 		  </form>
 	<a href="/{{.Domain}}/export" target="_blank">Download data</a>.
-	</p>
+	</details>
 	{{ end}}
 
 	{{else}}
