@@ -1,7 +1,7 @@
 {{template "header" .}}
 <div class="main" class="fonty">
 	<div class="fr">
-	<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>Write</a><br>
+	{{ if .SignedIn }}<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>Write</a><br>{{end}}
 	Log <a onclick="document.getElementById('id01').style.display='block'">in</a>{{ if gt (len .DomainList) 1 }} / <a href="/logout?d={{.Domain}}">out</a>{{end}}
 	<br>
 	</div>
