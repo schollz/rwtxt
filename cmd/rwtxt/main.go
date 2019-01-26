@@ -21,6 +21,7 @@ var (
 func main() {
 	var (
 		err             error
+		dumpOnStart     = flag.Bool("dumponstart", false, "Dump database to gz file on start")
 		export          = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
 		resizeWidth     = flag.Int("resizewidth", -1, "image width to resize on the fly")
 		resizeOnUpload  = flag.Bool("resizeonupload", false, "resize on upload")
@@ -67,7 +68,7 @@ func main() {
 	dbName = *database
 	defer log.Flush()
 
-	fs, err := db.New(dbName)
+	fs, err := db.New(dbName, *dumpOnStart)
 	if err != nil {
 		panic(err)
 	}

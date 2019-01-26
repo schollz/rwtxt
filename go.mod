@@ -8,6 +8,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/gorilla/websocket v1.4.0
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
+	github.com/karalabe/xgo v0.0.0-20181007145344-72da7d1d3970 // indirect
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2 // indirect
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/microcosm-cc/bluemonday v1.0.1
