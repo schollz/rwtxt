@@ -8,7 +8,7 @@
 src="https://img.shields.io/travis/schollz/rwtxt.svg?style=flat-square"
 alt="Build Status"></a> <a
 href="https://github.com/schollz/rwtxt/releases/latest"><img
-src="https://img.shields.io/badge/version-1.7.0-brightgreen.svg?style=flat-square"
+src="https://img.shields.io/badge/version-1.7.1-brightgreen.svg?style=flat-square"
 alt="Version"></a> </p>
 
 <p align="center">A cms for absolute minimalists. Try it at <a href="https://rwtxt.com/public">rwtxt.com</a>.</p>
