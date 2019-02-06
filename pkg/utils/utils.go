@@ -92,7 +92,7 @@ func RenderMarkdownToHTML(markdown string) template.HTML {
 	return template.HTML(html)
 }
 
-var src = rand.NewSource(time.Now().UnixNano())
+var src = rand.NewSource(time.Now().UTC().UnixNano())
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
 const (

@@ -60,6 +60,8 @@ type TemplateRender struct {
 	LanguageJS         []template.JS
 	rwt                *RWTxt
 	RWTxtConfig        Config
+	RenderTime         time.Time
+	UTCOffset          int
 }
 
 type Payload struct {
@@ -171,7 +173,7 @@ func (tr TemplateRender) updateDomainCookie(w http.ResponseWriter, r *http.Reque
 	return http.Cookie{
 		Name:    "rwtxt-domains",
 		Value:   strings.Join(domainKeyList, ","),
-		Expires: time.Now().Add(365 * 24 * time.Hour),
+		Expires: time.Now().UTC().Add(365 * 24 * time.Hour),
 	}
 }
 
@@ -182,12 +184,41 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 		http.SetCookie(w, &cookie)
 	}
 
+	domainid, ispublic, domainErr := tr.rwt.fs.GetDomainFromName(tr.Domain)
+	// check cache
+	latestEntry, err := tr.rwt.fs.LatestEntryFromDomainID(domainid)
+	if err == nil {
+		log.Debugf("latest entry from %s: %s", tr.Domain, latestEntry)
+		var trBytes []byte
+		trBytes, err = tr.rwt.fs.GetCacheHTML(tr.Domain, true)
+		if err == nil {
+			err = json.Unmarshal(trBytes, &tr)
+			if err != nil {
+				log.Debug(err)
+			} else {
+				log.Debugf("last render time: %s, %v", tr.RenderTime, tr.RenderTime.After(latestEntry))
+				if tr.RenderTime.After(latestEntry) {
+					log.Debug("using cache")
+					w.Header().Set("Content-Encoding", "gzip")
+					w.Header().Set("Content-Type", "text/html")
+					gz := gzip.NewWriter(w)
+					defer gz.Close()
+					return tr.rwt.mainTemplate.Execute(gz, tr)
+				}
+			}
+		} else {
+			log.Debugf("could not unmarshal: %s", err.Error())
+		}
+	} else {
+		log.Debugf("latest entry error: %s", err.Error())
+	}
+
 	// create a page to write to
 	newFile := db.File{
 		ID:       utils.UUID(),
-		Created:  time.Now(),
+		Created:  time.Now().UTC(),
 		Domain:   tr.Domain,
-		Modified: time.Now(),
+		Modified: time.Now().UTC(),
 	}
 	defer func() {
 		go func() {
@@ -201,7 +232,6 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 	tr.RandomUUID = newFile.ID
 
 	// delete this
-	_, ispublic, domainErr := tr.rwt.fs.GetDomainFromName(tr.Domain)
 	signedin := tr.SignedIn
 	if domainErr != nil {
 		// domain does NOT exist
@@ -220,12 +250,33 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 	tr.Title = tr.Domain
 	tr.Message = message
 	tr.DomainValue = template.HTMLAttr(`value="` + tr.Domain + `"`)
+	tr.RenderTime = time.Now().UTC()
+
+	go func() {
+		trBytes, err := json.Marshal(tr)
+		if err != nil {
+			log.Error(err)
+		}
+		err = tr.rwt.fs.SetCacheHTML(tr.Domain, trBytes)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
 	return tr.rwt.mainTemplate.Execute(gz, tr)
+}
+
+func (tr *TemplateRender) getUTCOffsetFromCookie(r *http.Request) {
+	c, err := r.Cookie("UTCOffset")
+	if err == nil {
+		tr.UTCOffset, _ = strconv.Atoi(c.Value)
+	}
+	log.Debugf("got utc offset: %d", tr.UTCOffset)
+	return
 }
 
 func (tr *TemplateRender) handleLogout(w http.ResponseWriter, r *http.Request) (err error) {
@@ -369,7 +420,7 @@ func (tr *TemplateRender) handleWebsocket(w http.ResponseWriter, r *http.Request
 				ID:      p.ID,
 				Slug:    p.Slug,
 				Data:    data,
-				Created: time.Now(),
+				Created: time.Now().UTC(),
 				Domain:  p.Domain,
 			}
 			err = tr.rwt.fs.Save(editFile)
@@ -406,12 +457,12 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	// handle new page
 	// get edit url parameter
 	log.Debugf("loading %s", tr.Page)
-	timeStart := time.Now()
+	timeStart := time.Now().UTC()
 	defer func() {
 		log.Debugf("loaded %s in %s", tr.Page, time.Since(timeStart))
 	}()
 
-	timerStart := time.Now()
+	timerStart := time.Now().UTC()
 	pageID, many, err := tr.rwt.fs.Exists(tr.Page, tr.Domain)
 	if err != nil {
 		return
@@ -422,7 +473,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	var f db.File
 
 	// check if domain is public and exists
-	timerStart = time.Now()
+	timerStart = time.Now().UTC()
 	_, ispublic, errGet := tr.rwt.fs.GetDomainFromName(tr.Domain)
 	if errGet == nil && !tr.SignedIn && !ispublic {
 		return tr.handleMain(w, r, "domain is not public, sign in first")
@@ -449,7 +500,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			timerStart = time.Now()
+			timerStart = time.Now().UTC()
 			tr.SimilarFiles, err = tr.rwt.fs.GetSimilar(pageID)
 			if err != nil {
 				log.Error(err)
@@ -458,7 +509,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		}()
 
 		var files []db.File
-		timerStart = time.Now()
+		timerStart = time.Now().UTC()
 		if !many {
 			files, err = tr.rwt.fs.Get(pageID, tr.Domain)
 		} else {
@@ -479,9 +530,9 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		uuid := utils.UUID()
 		f = db.File{
 			ID:       uuid,
-			Created:  time.Now(),
+			Created:  time.Now().UTC(),
 			Domain:   tr.Domain,
-			Modified: time.Now(),
+			Modified: time.Now().UTC(),
 		}
 		f.Slug = tr.Page
 		f.Data = ""
@@ -524,7 +575,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}()
 
 	// make title
-	timerStart = time.Now()
+	timerStart = time.Now().UTC()
 	domain := tr.Domain
 	slug := f.Slug
 	if domain == "" {

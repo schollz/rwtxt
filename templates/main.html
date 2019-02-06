@@ -46,8 +46,9 @@
 	<ul>
 		{{range .Files}}
 		<li>
+			
 			<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
-			&nbsp;<small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.Created.Format "Jan 2 3:04pm 2006"}}{{else}}{{.Modified.Format "Jan 2 3:04pm 2006"}}{{end}}</small>
+			&nbsp;<small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}</small>
 		</li>
 		{{end}}
 	</ul>
@@ -59,7 +60,7 @@
 			{{range .MostActiveList}}
 			<li>
 				<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
-				&nbsp;<small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.Created.Format "Jan 2 3:04pm 2006"}}{{else}}{{.Modified.Format "Jan 2 3:04pm 2006"}}{{end}}</small>
+				&nbsp;<small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}</small>
 			</li>
 			{{end}}
 		</ul>

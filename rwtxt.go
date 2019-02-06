@@ -111,7 +111,7 @@ func templateAssets(s []string, t *template.Template) error {
 
 func (rwt *RWTxt) Serve() (err error) {
 	go func() {
-		lastDumped := time.Now()
+		lastDumped := time.Now().UTC()
 		for {
 			time.Sleep(120 * time.Second)
 			lastModified, errGet := rwt.fs.LastModified()
@@ -128,7 +128,7 @@ func (rwt *RWTxt) Serve() (err error) {
 				if errDump != nil {
 					log.Error(errDump)
 				}
-				lastDumped = time.Now()
+				lastDumped = time.Now().UTC()
 			}
 		}
 	}()
@@ -154,14 +154,14 @@ func (rwt *RWTxt) isSignedIn(w http.ResponseWriter, r *http.Request, domain stri
 }
 
 func (rwt *RWTxt) getDomainListCookie(w http.ResponseWriter, r *http.Request) (domainKeys map[string]string, defaultDomain string) {
-	startTime := time.Now()
+	startTime := time.Now().UTC()
 	domainKeys = make(map[string]string)
 	cookie, cookieErr := r.Cookie("rwtxt-domains")
 	keysToUpdate := []string{}
 	if cookieErr == nil {
 		log.Debugf("got cookie: %s", cookie.Value)
 		for _, key := range strings.Split(cookie.Value, ",") {
-			startTime2 := time.Now()
+			startTime2 := time.Now().UTC()
 			domainName, domainErr := rwt.fs.CheckKey(key)
 			log.Debugf("checked key: %s [%s]", key, time.Since(startTime2))
 			if domainErr == nil && domainName != "" {
@@ -187,7 +187,7 @@ func (rwt *RWTxt) getDomainListCookie(w http.ResponseWriter, r *http.Request) (d
 }
 
 func (rwt *RWTxt) Handler(w http.ResponseWriter, r *http.Request) {
-	t := time.Now()
+	t := time.Now().UTC()
 	err := rwt.Handle(w, r)
 	if err != nil {
 		log.Error(err)
@@ -196,6 +196,7 @@ func (rwt *RWTxt) Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rwt *RWTxt) Handle(w http.ResponseWriter, r *http.Request) (err error) {
+
 	// very special paths
 	if r.URL.Path == "/robots.txt" {
 		// special path
@@ -224,6 +225,9 @@ Disallow: /`))
 	}
 
 	tr.SignedIn, tr.DomainKey, tr.DefaultDomain, tr.DomainList, tr.DomainKeys = rwt.isSignedIn(w, r, tr.Domain)
+
+	// get browser local time
+	tr.getUTCOffsetFromCookie(r)
 
 	if r.URL.Path == "/" {
 		// special path /
@@ -338,9 +342,9 @@ func (rwt *RWTxt) handleStatic(w http.ResponseWriter, r *http.Request) (err erro
 func (rwt *RWTxt) createPage(domain string) (f db.File) {
 	f = db.File{
 		ID:       utils.UUID(),
-		Created:  time.Now(),
+		Created:  time.Now().UTC(),
 		Domain:   domain,
-		Modified: time.Now(),
+		Modified: time.Now().UTC(),
 	}
 	err := rwt.fs.Save(f)
 	if err != nil {

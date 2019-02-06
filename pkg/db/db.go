@@ -42,6 +42,14 @@ type File struct {
 	Views    int                         `json:"views"`
 }
 
+func (f File) CreatedDate(utcOffset int) string {
+	return f.Created.Add(-1 * time.Duration(utcOffset) * time.Hour).Format("Jan 2 3:04pm 2006")
+}
+
+func (f File) ModifiedDate(utcOffset int) string {
+	return f.Modified.Add(-1 * time.Duration(utcOffset) * time.Hour).Format("Jan 2 3:04pm 2006")
+}
+
 // New will initialize a filesystem by creating DB and calling InitializeDB.
 // Callers should ensure "github.com/mattn/go-sqlite3" is imported in some way
 // before calling this so the sqlite3 driver is available.
@@ -344,7 +352,7 @@ func (fs *FileSystem) ExportPosts() error {
 			postPaths = append(postPaths, fpath)
 		}
 	}
-	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
+	timestamp := strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
 	for _, f := range postPaths {
 		log.Debug(f)
 	}
@@ -388,7 +396,7 @@ func (fs *FileSystem) ExportUploads() error {
 		files = append(files, fpath)
 	}
 
-	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
+	timestamp := strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
 	for _, f := range files {
 		log.Debug(f)
 	}
@@ -1023,7 +1031,7 @@ func (fs *FileSystem) SetCacheHTML(id string, tr []byte) (err error) {
 		return errors.Wrap(err, "stmt Save SetCache")
 	}
 
-	_, err = stmt.Exec(id, time.Now(), tr)
+	_, err = stmt.Exec(id, time.Now().UTC(), tr)
 	if err != nil {
 		return errors.Wrap(err, "exec Save SetCache")
 	}
@@ -1036,38 +1044,46 @@ func (fs *FileSystem) SetCacheHTML(id string, tr []byte) (err error) {
 }
 
 // SetCacheHTML will set the html cache
-func (fs *FileSystem) GetCacheHTML(id string) (tr []byte, err error) {
+func (fs *FileSystem) GetCacheHTML(id string, noCheckLastModified ...bool) (tr []byte, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
-	fsLastModified, err := func(id string) (fsLastModified time.Time, err error) {
-		// prepare statement
-		stmt, err := fs.DB.Prepare("SELECT modified FROM fs WHERE id=?")
+	doCheckLastModified := true
+	if len(noCheckLastModified) > 0 {
+		doCheckLastModified = !noCheckLastModified[0]
+	}
+
+	var fsLastModified time.Time
+	if doCheckLastModified {
+		fsLastModified, err = func(id string) (fsLastModified time.Time, err error) {
+			// prepare statement
+			stmt, err := fs.DB.Prepare("SELECT modified FROM fs WHERE id=?")
+			if err != nil {
+				err = errors.Wrap(err, "preparing query")
+				return
+			}
+
+			defer stmt.Close()
+			rows, err := stmt.Query(id)
+			if err != nil {
+				return
+			}
+
+			// loop through rows
+			defer rows.Close()
+
+			for rows.Next() {
+				err = rows.Scan(
+					&fsLastModified,
+				)
+				return
+			}
+			err = fmt.Errorf("found nothing")
+			return
+		}(id)
 		if err != nil {
-			err = errors.Wrap(err, "preparing query")
 			return
 		}
-
-		defer stmt.Close()
-		rows, err := stmt.Query(id)
-		if err != nil {
-			return
-		}
-
-		// loop through rows
-		defer rows.Close()
-
-		for rows.Next() {
-			err = rows.Scan(
-				&fsLastModified,
-			)
-			return
-		}
-		err = fmt.Errorf("found nothing")
-		return
-	}(id)
-	if err != nil {
-		return
 	}
 
 	// prepare statement
@@ -1094,7 +1110,7 @@ func (fs *FileSystem) GetCacheHTML(id string) (tr []byte, err error) {
 			return
 		}
 	}
-	if fsLastModified.After(cacheLastModified) {
+	if doCheckLastModified && fsLastModified.After(cacheLastModified) {
 		err = fmt.Errorf("cache is not new")
 	}
 
@@ -1414,12 +1430,34 @@ func (fs *FileSystem) isID(id string) (exists bool, err error) {
 	return
 }
 
+// LatestEntryFromDomainID returns the last entry date for the current domain
+func (fs *FileSystem) LatestEntryFromDomainID(domainid int) (latest time.Time, err error) {
+	if domainid == 0 {
+		err = fmt.Errorf("cannot get latest entry from public")
+		return
+	}
+
+	timestamps, err := fs.getAllFromPreparedQuerySingleTimestamp(`
+		SELECT modified FROM fs WHERE domainid = ? AND views > 0 ORDER BY modified DESC LIMIT 1
+	`, domainid)
+	if err != nil {
+		err = errors.Wrap(err, "getAllFromPreparedQuerySingleTimestamp")
+		return
+	}
+	if len(timestamps) > 0 {
+		latest = timestamps[0]
+	} else {
+		err = fmt.Errorf("found no entries")
+	}
+	return
+}
+
 // Exists returns whether specified id or slug exists
 func (fs *FileSystem) Exists(id string, domain string) (trueID string, many bool, err error) {
-	timeStart := time.Now()
-	defer func() {
-		log.Debugf("checked exists %s/%s in %s", domain, id, time.Since(timeStart))
-	}()
+	// timeStart := time.Now().UTC()
+	// defer func() {
+	// 	log.Debugf("checked exists %s/%s in %s", domain, id, time.Since(timeStart))
+	// }()
 
 	// fs.Lock()
 	// defer fs.Unlock()
@@ -1452,10 +1490,10 @@ func (fs *FileSystem) Exists(id string, domain string) (trueID string, many bool
 }
 
 func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{}) (files []File, err error) {
-	timeStart := time.Now()
-	defer func() {
-		log.Debugf("getAllFromPreparedQuery %s in %s", query, time.Since(timeStart))
-	}()
+	// timeStart := time.Now().UTC()
+	// defer func() {
+	// 	log.Debugf("getAllFromPreparedQuery %s in %s", query, time.Since(timeStart))
+	// }()
 
 	// prepare statement
 	stmt, err := fs.DB.Prepare(query)
@@ -1508,10 +1546,10 @@ func (fs *FileSystem) getAllFromPreparedQuery(query string, args ...interface{})
 }
 
 func (fs *FileSystem) getAllFromPreparedQuerySingleString(query string, args ...interface{}) (s []string, err error) {
-	timeStart := time.Now()
-	defer func() {
-		log.Debugf("getAllFromPreparedQuerySingleString %s in %s", query, time.Since(timeStart))
-	}()
+	// timeStart := time.Now().UTC()
+	// defer func() {
+	// 	log.Debugf("getAllFromPreparedQuerySingleString %s in %s", query, time.Since(timeStart))
+	// }()
 
 	// prepare statement
 	stmt, err := fs.DB.Prepare(query)
@@ -1532,6 +1570,47 @@ func (fs *FileSystem) getAllFromPreparedQuerySingleString(query string, args ...
 	s = []string{}
 	for rows.Next() {
 		var stemp string
+		err = rows.Scan(
+			&stemp,
+		)
+		if err != nil {
+			err = errors.Wrap(err, "getRows")
+			return
+		}
+		s = append(s, stemp)
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errors.Wrap(err, "getRows")
+	}
+	return
+}
+
+func (fs *FileSystem) getAllFromPreparedQuerySingleTimestamp(query string, args ...interface{}) (s []time.Time, err error) {
+	// timeStart := time.Now().UTC()
+	// defer func() {
+	// 	log.Debugf("getAllFromPreparedQuerySingleTimestamp %s in %s", query, time.Since(timeStart))
+	// }()
+
+	// prepare statement
+	stmt, err := fs.DB.Prepare(query)
+	if err != nil {
+		err = errors.Wrap(err, "preparing query: "+query)
+		return
+	}
+
+	defer stmt.Close()
+	rows, err := stmt.Query(args...)
+	if err != nil {
+		err = errors.Wrap(err, query)
+		return
+	}
+
+	// loop through rows
+	defer rows.Close()
+	s = []time.Time{}
+	for rows.Next() {
+		var stemp time.Time
 		err = rows.Scan(
 			&stemp,
 		)
