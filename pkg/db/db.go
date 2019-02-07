@@ -42,12 +42,20 @@ type File struct {
 	Views    int                         `json:"views"`
 }
 
+func formattedDate(t time.Time, utcOffset int) string {
+	loc, err := time.LoadLocation(fmt.Sprintf("Etc/GMT%+d", utcOffset))
+	if err != nil {
+		return t.Format("Jan 2 3:04pm 2006")
+	}
+	return t.In(loc).Format("Jan 2 3:04pm 2006")
+}
+
 func (f File) CreatedDate(utcOffset int) string {
-	return f.Created.Add(-1 * time.Duration(utcOffset) * time.Hour).Format("Jan 2 3:04pm 2006")
+	return formattedDate(f.Created, utcOffset)
 }
 
 func (f File) ModifiedDate(utcOffset int) string {
-	return f.Modified.Add(-1 * time.Duration(utcOffset) * time.Hour).Format("Jan 2 3:04pm 2006")
+	return formattedDate(f.Modified, utcOffset)
 }
 
 // New will initialize a filesystem by creating DB and calling InitializeDB.
