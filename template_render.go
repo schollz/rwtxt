@@ -185,32 +185,34 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 	}
 
 	domainid, ispublic, domainErr := tr.rwt.fs.GetDomainFromName(tr.Domain)
-	// check cache
-	latestEntry, err := tr.rwt.fs.LatestEntryFromDomainID(domainid)
-	if err == nil {
-		log.Debugf("latest entry from %s: %s", tr.Domain, latestEntry)
-		var trBytes []byte
-		trBytes, err = tr.rwt.fs.GetCacheHTML(tr.Domain, true)
+	// check cache if signed in
+	if tr.SignedIn {
+		latestEntry, err := tr.rwt.fs.LatestEntryFromDomainID(domainid)
 		if err == nil {
-			err = json.Unmarshal(trBytes, &tr)
-			if err != nil {
-				log.Debug(err)
-			} else {
-				log.Debugf("last render time: %s, %v", tr.RenderTime, tr.RenderTime.After(latestEntry))
-				if tr.RenderTime.After(latestEntry) {
-					log.Debug("using cache")
-					w.Header().Set("Content-Encoding", "gzip")
-					w.Header().Set("Content-Type", "text/html")
-					gz := gzip.NewWriter(w)
-					defer gz.Close()
-					return tr.rwt.mainTemplate.Execute(gz, tr)
+			log.Debugf("latest entry from %s: %s", tr.Domain, latestEntry)
+			var trBytes []byte
+			trBytes, err = tr.rwt.fs.GetCacheHTML(tr.Domain, true)
+			if err == nil {
+				err = json.Unmarshal(trBytes, &tr)
+				if err != nil {
+					log.Debug(err)
+				} else {
+					log.Debugf("last render time: %s, %v", tr.RenderTime, tr.RenderTime.After(latestEntry))
+					if tr.RenderTime.After(latestEntry) {
+						log.Debug("using cache")
+						w.Header().Set("Content-Encoding", "gzip")
+						w.Header().Set("Content-Type", "text/html")
+						gz := gzip.NewWriter(w)
+						defer gz.Close()
+						return tr.rwt.mainTemplate.Execute(gz, tr)
+					}
 				}
+			} else {
+				log.Debugf("could not unmarshal: %s", err.Error())
 			}
 		} else {
-			log.Debugf("could not unmarshal: %s", err.Error())
+			log.Debugf("latest entry error: %s", err.Error())
 		}
-	} else {
-		log.Debugf("latest entry error: %s", err.Error())
 	}
 
 	// create a page to write to
@@ -252,16 +254,18 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 	tr.DomainValue = template.HTMLAttr(`value="` + tr.Domain + `"`)
 	tr.RenderTime = time.Now().UTC()
 
-	go func() {
-		trBytes, err := json.Marshal(tr)
-		if err != nil {
-			log.Error(err)
-		}
-		err = tr.rwt.fs.SetCacheHTML(tr.Domain, trBytes)
-		if err != nil {
-			log.Error(err)
-		}
-	}()
+	if signedin {
+		go func() {
+			trBytes, err := json.Marshal(tr)
+			if err != nil {
+				log.Error(err)
+			}
+			err = tr.rwt.fs.SetCacheHTML(tr.Domain, trBytes)
+			if err != nil {
+				log.Error(err)
+			}
+		}()
+	}
 
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Content-Type", "text/html")
