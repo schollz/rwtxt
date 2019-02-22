@@ -2,6 +2,10 @@
     outline: 0px solid transparent;
 }
 
+* {
+    margin: 0;
+}
+
 body {
     background: rgb(253, 253, 253);
 }
@@ -9,6 +13,10 @@ body {
 .main {
     margin: 1em auto;
     max-width: 32em;
+}
+
+h1,h2,h3,h4,h5 {
+    margin-bottom: 0.3em;
 }
 
 h2 {
