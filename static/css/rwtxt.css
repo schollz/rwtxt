@@ -2,14 +2,25 @@
     outline: 0px solid transparent;
 }
 
+* {
+    margin: 0;
+}
+
+h1,h2,h3,h4,h5 {
+    margin-bottom: 0.3em;
+}
+
 body {
     background: rgb(253, 253, 253);
+    margin: 1em;
 }
 
 .main {
     margin: 1em auto;
     max-width: 32em;
 }
+
+
 
 h2 {
     margin-top: 1.5em;
@@ -108,8 +119,8 @@ code {
         font-size: 1.1rem;
     }
     .main {
-        margin-left: 0.1em;
-        margin-right: 0.1em;
+        margin-left: 1em;
+        margin-right: 1em;
     }
 }
 
