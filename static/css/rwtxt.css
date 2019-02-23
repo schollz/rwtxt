@@ -12,6 +12,7 @@ h1,h2,h3,h4,h5 {
 
 body {
     background: rgb(253, 253, 253);
+    margin: 1em;
 }
 
 .main {
