@@ -43,32 +43,39 @@
 	</p>
 	{{ if .Files }}
 	<h2>Most recent <small>(<a href="/{{.Domain}}/list">all posts</a>)</small></h2>
-	<ul>
+	<div class="list">
 		{{range .Files}}
-		
-		<li>
-			
-			<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
-			&nbsp;<small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}</small>
-		</li>
+		<div>
+			<div>
+					<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
+			</div>
+			<div>
+					{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}
+			</div>
+		</div>
 		{{end}}
-	</ul>
+	</div>
 	{{end}}
 	
 	{{ $length := len .MostActiveList }}{{ if ge $length 8 }}
-		<h2>Most edited</h2>
-		<ul>
+	<h2>Most edited</h2>
+	<div class="list">
 			{{range .MostActiveList}}
-			<li>
-				<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
-				&nbsp;<small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}</small>
-			</li>
+			<div>
+				<div>
+						<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
+				</div>
+				<div>
+						{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}
+				</div>
+			</div>
 			{{end}}
-		</ul>
+	</div>
 	{{end}}
 
 	{{end}}
 	{{ if and (.SignedIn) (ne .Domain "public")}}
+	<br>
 	<details>
 	<summary>Options</summary>
 		  <form action="/update" method="post">

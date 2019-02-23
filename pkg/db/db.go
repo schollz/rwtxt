@@ -45,9 +45,9 @@ type File struct {
 func formattedDate(t time.Time, utcOffset int) string {
 	loc, err := time.LoadLocation(fmt.Sprintf("Etc/GMT%+d", utcOffset))
 	if err != nil {
-		return t.Format("Jan 2 3:04pm 2006")
+		return t.Format("3:04pm Jan 2 2006")
 	}
-	return t.In(loc).Format("Jan 2 3:04pm 2006")
+	return t.In(loc).Format("3:04pm Jan 2 2006")
 }
 
 func (f File) CreatedDate(utcOffset int) string {

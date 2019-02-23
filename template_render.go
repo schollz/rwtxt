@@ -484,6 +484,10 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	}
 	log.Debugf("checked domain %s", time.Since(timerStart))
 
+	// check whether want to serve raw
+	showRaw := r.URL.Query().Get("raw") != ""
+	log.Debugf("raw page: '%v'", showRaw)
+
 	trBytes, err := tr.rwt.fs.GetCacheHTML(pageID)
 	if err == nil {
 		err = json.Unmarshal(trBytes, &tr)
@@ -491,6 +495,14 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 			log.Error(err)
 		} else {
 			log.Debug("using cache")
+			if showRaw {
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Set("Content-Type", "text/plain")
+				gz := gzip.NewWriter(w)
+				defer gz.Close()
+				_, err = gz.Write([]byte(tr.File.Data))
+				return
+			}
 			w.Header().Set("Content-Encoding", "gzip")
 			w.Header().Set("Content-Type", "text/html")
 			gz := gzip.NewWriter(w)
@@ -549,6 +561,15 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	tr.File = f
+
+	if showRaw {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Type", "text/plain")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		_, err = gz.Write([]byte(tr.File.Data))
+		return
+	}
 
 	// get a specific version
 	version := r.URL.Query().Get("version")

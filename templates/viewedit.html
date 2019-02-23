@@ -15,11 +15,15 @@
 
     <div class="grayed smaller">
         <br><br><br>
-        <a href="/{{.Domain}}/{{.File.ID}}" class="grayed">/{{.Domain}}/{{.File.ID}}</a><br>
-        {{.File.ModifiedDate .UTCOffset }}<br>
-    {{.File.Views}} views<br>{{ if (eq .Domain "public") }}{{else}}{{ if .SimilarFiles}}
-        Related: {{ range .SimilarFiles }}<a href="/{{$.Domain}}/{{.ID}}" class="grayed">{{.Slug}}</a> {{end}}
-	{{end}}{{end}}
+        <details>
+            <summary>{{.File.ModifiedDate .UTCOffset }}</summary>
+                    <a href="/{{.Domain}}/{{.File.ID}}?raw=1" class="grayed">/{{.Domain}}/{{.File.ID}}</a><br>
+                {{.File.Views}} views<br>
+                <!-- {{ if (eq .Domain "public") }}{{else}}{{ if .SimilarFiles}}
+                    {{ range .SimilarFiles }}<a href="/{{$.Domain}}/{{.ID}}" class="grayed">{{.Slug}}</a><br> {{end}}
+                {{end}}{{end}} -->
+        </details>
+
     </div>
 </div>
 {{ end }}

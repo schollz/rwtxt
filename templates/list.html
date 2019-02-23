@@ -6,13 +6,19 @@
         <a href='/{{.Domain}}/{{.RandomUUID}}?edit=1' class='fr'>New page</a>{{end}}</span>
     <h1>{{.NumResults}} results for '{{.Search}}'</h1>
     <p>Currently in the <strong>{{.Domain}}</strong> domain.</p>
-    {{range .Files}}
-    <p>
-        <a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
-        <small class="grey">{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset}}{{else}}{{.ModifiedDate $.UTCOffset}}{{end}}</small>
-        
-        <blockquote><em>{{.DataHTML}}</em></blockquote>
-    </p>
-    {{end}}
+
+    <div class="list">
+			{{range .Files}}
+			<div>
+				<div>
+						<a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
+				</div>
+				<div>
+						{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset}}{{else}}{{.ModifiedDate $.UTCOffset}}{{end}}
+                </div>
+                {{with .DataHTML}}<blockquote><em>{{.}}</em></blockquote>{{end}}
+			</div>
+			{{end}}
+	</div>
 </main>
 {{template "footer" .}}
