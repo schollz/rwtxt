@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -62,6 +63,7 @@ type TemplateRender struct {
 	RWTxtConfig        Config
 	RenderTime         time.Time
 	UTCOffset          int
+	Options            db.DomainOptions
 }
 
 type Payload struct {
@@ -124,7 +126,9 @@ func NewTemplateRender(rwt *RWTxt) *TemplateRender {
 func (tr *TemplateRender) handleSearch(w http.ResponseWriter, r *http.Request, domain, query string) (err error) {
 	_, ispublic, _ := tr.rwt.fs.GetDomainFromName(domain)
 	if !tr.SignedIn && !ispublic {
-		return tr.handleMain(w, r, "need to log in to search")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("need to log in to search")), 302)
+		return
+
 	}
 	files, errGet := tr.rwt.fs.Find(query, tr.Domain)
 	if errGet != nil {
@@ -136,7 +140,8 @@ func (tr *TemplateRender) handleSearch(w http.ResponseWriter, r *http.Request, d
 func (tr *TemplateRender) handleList(w http.ResponseWriter, r *http.Request, query string, files []db.File) (err error) {
 	_, ispublic, _ := tr.rwt.fs.GetDomainFromName(tr.Domain)
 	if !tr.SignedIn && !ispublic {
-		return tr.handleMain(w, r, "need to log in to list")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("need to log in to list")), 302)
+		return
 	}
 
 	// show the list page
@@ -177,16 +182,25 @@ func (tr TemplateRender) updateDomainCookie(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, message string) (err error) {
+func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request) (err error) {
 	// set the default domain if it doesn't exist
 	if tr.SignedIn && tr.DefaultDomain != tr.Domain {
 		cookie := tr.updateDomainCookie(w, r)
 		http.SetCookie(w, &cookie)
 	}
 
+	message := r.URL.Query().Get("m")
+	if message != "" {
+		messageB, errDecode := base64.URLEncoding.DecodeString(message)
+		if errDecode == nil {
+			message = string(messageB)
+		}
+	}
+
 	domainid, ispublic, domainErr := tr.rwt.fs.GetDomainFromName(tr.Domain)
+	tr.DomainID = domainid
 	// check cache if signed in
-	if tr.SignedIn {
+	if tr.SignedIn && message != "" {
 		latestEntry, err := tr.rwt.fs.LatestEntryFromDomainID(domainid)
 		if err == nil {
 			log.Debugf("latest entry from %s: %s", tr.Domain, latestEntry)
@@ -254,6 +268,14 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request, mes
 	tr.DomainValue = template.HTMLAttr(`value="` + tr.Domain + `"`)
 	tr.RenderTime = time.Now().UTC()
 
+	// determine options
+	var errOptions error
+	tr.Options, errOptions = tr.rwt.fs.GetOptions(tr.DomainID)
+	if errOptions != nil {
+		log.Warn(errOptions)
+	}
+	log.Debugf("got options for %d: %+v", tr.DomainID, tr.Options)
+
 	if signedin {
 		go func() {
 			trBytes, err := json.Marshal(tr)
@@ -299,7 +321,8 @@ func (tr *TemplateRender) handleLogout(w http.ResponseWriter, r *http.Request) (
 		http.SetCookie(w, c)
 	}
 
-	return tr.handleMain(w, r, "You are not logged in.")
+	http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("you are not logged in")), 302)
+	return
 }
 
 func (tr *TemplateRender) handleLogin(w http.ResponseWriter, r *http.Request) (err error) {
@@ -307,11 +330,12 @@ func (tr *TemplateRender) handleLogin(w http.ResponseWriter, r *http.Request) (e
 	password := strings.TrimSpace(r.FormValue("password"))
 	if tr.Domain == "public" || tr.Domain == "" {
 		tr.Domain = "public"
-		return tr.handleMain(w, r, "")
+		return tr.handleMain(w, r)
 	}
 	if password == "" {
 		tr.Domain = "public"
-		return tr.handleMain(w, r, "domain key cannot be empty")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("domain key cannot be empty")), 302)
+		return
 	}
 	var key string
 
@@ -324,13 +348,15 @@ func (tr *TemplateRender) handleLogin(w http.ResponseWriter, r *http.Request) (e
 		if err != nil {
 			log.Error(err)
 			tr.Domain = "public"
-			return tr.handleMain(w, r, err.Error())
+			http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+			return
 		}
 	}
 	tr.DomainKey, err = tr.rwt.fs.SetKey(tr.Domain, password)
 	if err != nil {
 		tr.Domain = "public"
-		return tr.handleMain(w, r, err.Error())
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+		return
 	}
 
 	log.Debugf("new key: %s", key)
@@ -346,20 +372,33 @@ func (tr *TemplateRender) handleLoginUpdate(w http.ResponseWriter, r *http.Reque
 	tr.Domain = strings.TrimSpace(strings.ToLower(r.FormValue("domain")))
 	password := strings.TrimSpace(r.FormValue("password"))
 	isPublic := strings.TrimSpace(r.FormValue("ispublic")) == "on"
+	options := db.DomainOptions{
+		Hipster:        strings.TrimSpace(r.FormValue("hipster")) == "on",
+		ShowMostRecent: strings.TrimSpace(r.FormValue("showmostrecent")) == "on",
+		ShowMostEdit:   strings.TrimSpace(r.FormValue("showmostedit")) == "on",
+		ShowAll:        strings.TrimSpace(r.FormValue("showall")) == "on",
+	}
+	log.Debugf("new options: %+v", options)
 	if tr.Domain == "public" || tr.Domain == "" {
 		tr.Domain = "public"
-		return tr.handleMain(w, r, "cannot modify public")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("cannot modify public")), 302)
+		return
 	}
 
 	// check that the key is valid
-	domainFound, err := tr.rwt.fs.CheckKey(tr.DomainKey)
+	domainID, domainFound, err := tr.rwt.fs.CheckKey(tr.DomainKey)
 	if err != nil || tr.Domain != domainFound {
 		if err != nil {
 			log.Debug(err)
 		}
-		return tr.handleMain(w, r, err.Error())
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+		return
 	}
 
+	err = tr.rwt.fs.SaveOptions(domainID, options)
+	if err != nil {
+		log.Warn(err)
+	}
 	err = tr.rwt.fs.UpdateDomain(tr.Domain, password, isPublic)
 	message := "settings updated"
 	if password != "" {
@@ -368,7 +407,8 @@ func (tr *TemplateRender) handleLoginUpdate(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		message = err.Error()
 	}
-	return tr.handleMain(w, r, message)
+	http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(message)), 302)
+	return
 }
 
 func (tr *TemplateRender) handleWebsocket(w http.ResponseWriter, r *http.Request) (err error) {
@@ -404,7 +444,7 @@ func (tr *TemplateRender) handleWebsocket(w http.ResponseWriter, r *http.Request
 			if p.Domain == "public" {
 				domainValidated = true
 			} else {
-				_, keyErr := tr.rwt.fs.CheckKey(p.DomainKey)
+				_, _, keyErr := tr.rwt.fs.CheckKey(p.DomainKey)
 				if keyErr == nil {
 					domainValidated = true
 				}
@@ -480,7 +520,8 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	timerStart = time.Now().UTC()
 	_, ispublic, errGet := tr.rwt.fs.GetDomainFromName(tr.Domain)
 	if errGet == nil && !tr.SignedIn && !ispublic {
-		return tr.handleMain(w, r, "domain is not public, sign in first")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("domain is not public, sign in first")), 302)
+		return
 	}
 	log.Debugf("checked domain %s", time.Since(timerStart))
 
@@ -533,7 +574,8 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		}
 		if err != nil {
 			log.Error(err)
-			return tr.handleMain(w, r, err.Error())
+			http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+			return
 		}
 		if len(files) > 1 {
 			return tr.handleList(w, r, tr.Page, files)
@@ -554,7 +596,9 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		f.Data = ""
 		err = tr.rwt.fs.Save(f)
 		if err != nil {
-			return tr.handleMain(w, r, "domain does not exist")
+			err = fmt.Errorf("domain does not exist")
+			http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+			return
 		}
 		log.Debugf("saved: %+v", f)
 		http.Redirect(w, r, "/"+tr.Domain+"/"+tr.Page, 302)
@@ -828,10 +872,12 @@ func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (
 func (tr *TemplateRender) handleExport(w http.ResponseWriter, r *http.Request) (err error) {
 	log.Debug("exporting")
 	if tr.Domain == "public" {
-		return tr.handleMain(w, r, "can't export public")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("cannot export public")), 302)
+		return
 	}
 	if !tr.SignedIn {
-		return tr.handleMain(w, r, "must sign in")
+		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("must sign in")), 302)
+		return
 	}
 	files, _ := tr.rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderByCreated)
 	for i := range files {

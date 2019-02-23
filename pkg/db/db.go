@@ -42,6 +42,13 @@ type File struct {
 	Views    int                         `json:"views"`
 }
 
+type DomainOptions struct {
+	Hipster        bool
+	ShowMostRecent bool
+	ShowMostEdit   bool
+	ShowAll        bool
+}
+
 func formattedDate(t time.Time, utcOffset int) string {
 	loc, err := time.LoadLocation(fmt.Sprintf("Etc/GMT%+d", utcOffset))
 	if err != nil {
@@ -134,6 +141,16 @@ func (fs *FileSystem) InitializeDB(dump bool) (err error) {
 		name TEXT,
 		hashed_pass TEXT,
 		ispublic INTEGER DEFAULT 0
+	);`
+	_, err = fs.DB.Exec(sqlStmt)
+	if err != nil {
+		err = errors.Wrap(err, "creating domains table")
+	}
+
+	sqlStmt = `CREATE TABLE IF NOT EXISTS 
+	domain_options (
+		id INTEGER NOT NULL PRIMARY KEY,
+		data BLOB
 	);`
 	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
@@ -278,6 +295,69 @@ func (fs *FileSystem) NewFile(slug, data string) (f File) {
 		Created:  time.Now().UTC(),
 		Modified: time.Now().UTC(),
 		Data:     data,
+	}
+	return
+}
+
+// GetOptions will return the domain options
+func (fs *FileSystem) GetOptions(domainid int) (options DomainOptions, err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	stmt, err := fs.DB.Prepare("SELECT data FROM domain_options WHERE id = ?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	var b []byte
+	err = stmt.QueryRow(domainid).Scan(&b)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(b, &options)
+	return
+}
+
+// SaveOptions will save a blob
+func (fs *FileSystem) SaveOptions(domainid int, options DomainOptions) (err error) {
+	fs.Lock()
+	defer fs.Unlock()
+
+	b, err := json.Marshal(options)
+	if err != nil {
+		return
+	}
+
+	tx, err := fs.DB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin SaveOptions")
+	}
+	stmt, err := tx.Prepare(`
+	INSERT OR REPLACE INTO
+		domain_options
+	(
+		id,
+		data
+	) 
+		VALUES 	
+	(
+		?,
+		?
+	)`)
+	if err != nil {
+		return errors.Wrap(err, "stmt SaveOptions")
+	}
+	_, err = stmt.Exec(
+		domainid, b,
+	)
+	if err != nil {
+		return errors.Wrap(err, "exec SaveOptions")
+	}
+	defer stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit SaveOptions")
 	}
 	return
 }
@@ -852,7 +932,7 @@ func (fs *FileSystem) CheckKeys(keys []string) (domains []string, validKeys []st
 	validKeys = make([]string, len(keys))
 	i := 0
 	for _, key := range keys {
-		domain, err := fs.checkKey(key)
+		_, domain, err := fs.checkKey(key)
 		if err != nil || domain == "" {
 			continue
 		}
@@ -864,16 +944,16 @@ func (fs *FileSystem) CheckKeys(keys []string) (domains []string, validKeys []st
 }
 
 // CheckKey checks that it is a valid key for a domain
-func (fs *FileSystem) CheckKey(key string) (domain string, err error) {
+func (fs *FileSystem) CheckKey(key string) (domainid int, domain string, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	return fs.checkKey(key)
 }
 
-func (fs *FileSystem) checkKey(key string) (domain string, err error) {
+func (fs *FileSystem) checkKey(key string) (domainid int, domain string, err error) {
 	stmt, err := fs.DB.Prepare(`
 	SELECT 
-		domains.name
+	domains.id, domains.name
 	FROM keys 
 	
 	INNER JOIN domains 
@@ -885,7 +965,7 @@ func (fs *FileSystem) checkKey(key string) (domain string, err error) {
 		return
 	}
 	defer stmt.Close()
-	err = stmt.QueryRow(key).Scan(&domain)
+	err = stmt.QueryRow(key).Scan(&domainid, &domain)
 	if err != nil {
 		return
 	}

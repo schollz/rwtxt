@@ -2,6 +2,8 @@ package rwtxt
 
 import (
 	"compress/gzip"
+	"encoding/base64"
+	"fmt"
 	"html/template"
 	"net/http"
 	"sort"
@@ -162,7 +164,7 @@ func (rwt *RWTxt) getDomainListCookie(w http.ResponseWriter, r *http.Request) (d
 		log.Debugf("got cookie: %s", cookie.Value)
 		for _, key := range strings.Split(cookie.Value, ",") {
 			startTime2 := time.Now().UTC()
-			domainName, domainErr := rwt.fs.CheckKey(key)
+			_, domainName, domainErr := rwt.fs.CheckKey(key)
 			log.Debugf("checked key: %s [%s]", key, time.Since(startTime2))
 			if domainErr == nil && domainName != "" {
 				if defaultDomain == "" {
@@ -257,17 +259,21 @@ Disallow: /`))
 	} else if tr.Domain != "" && tr.Page == "" {
 		if r.URL.Query().Get("q") != "" {
 			if tr.Domain == "public" && !rwt.Config.Private {
-				return tr.handleMain(w, r, "can't search public")
+				err = fmt.Errorf("cannot search public")
+				http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+				return
 			}
 			return tr.handleSearch(w, r, tr.Domain, r.URL.Query().Get("q"))
 		}
 		// domain exists, handle normally
-		return tr.handleMain(w, r, "")
+		return tr.handleMain(w, r)
 	} else if tr.Domain != "" && tr.Page != "" {
 		log.Debugf("[%s/%s]", tr.Domain, tr.Page)
 		if tr.Page == "list" {
 			if tr.Domain == "public" && !rwt.Config.Private {
-				return tr.handleMain(w, r, "can't list public")
+				err = fmt.Errorf("cannot list public")
+				http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte(err.Error())), 302)
+				return
 			}
 
 			files, _ := rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderByCreated)

@@ -75,12 +75,17 @@
 
 	{{end}}
 	{{ if and (.SignedIn) (ne .Domain "public")}}
+	{{ .Options}}
 	<br>
 	<details>
 	<summary>Options</summary>
 		  <form action="/update" method="post">
-		  <input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
-		  <input type="password" name="password" value="" placeholder="Update password">
+			<input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
+			<input type="checkbox" name="hipster" {{if .Options.Hipster}}checked{{end}}> Hipster mode<br>
+			<input type="checkbox" name="showmostrecent" {{if .Options.ShowMostRecent}}checked{{end}}> Show most recent</small><br>
+			<input type="checkbox" name="showmostedit" {{if .Options.ShowMostEdit}}checked{{end}}> Show most edited</small><br>
+			<input type="checkbox" name="showall" {{if .Options.ShowAll}}checked{{end}}> Show all</small><br>
+			<input type="password" name="password" value="" placeholder="Update password">
 		  <input type="text" name="domain_key" value="{{.DomainKey}}" style="display:none;">
 		  <input type="text" name="domain" value="{{.Domain}}" style="display:none;">
 		  <input class="button1" type="submit" value="Submit">
