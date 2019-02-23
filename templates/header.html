@@ -256,9 +256,12 @@ textarea {
 
 /* Portrait and Landscape */
 @media screen 
-  and (-webkit-device-pixel-ratio: 3) {
-        textarea {
-            font-size: 1.2em;
+and (max-device-width: 480px) {
+    body {
+        font-size: 1.15em;
+    }
+    textarea {
+        font-size: 1em;
     }
 }
 
