@@ -1,5 +1,5 @@
 {{template "header" .}}
-<div class="main" class="fonty">
+<main>
 	<div class="fr">
 	{{ if .SignedIn }}<a href='/{{.Domain}}/{{.RandomUUID}}' class='fr'>Write</a><br>{{end}}
 	Log <a onclick="document.getElementById('id01').style.display='block'">in</a>{{ if gt (len .DomainList) 1 }} / <a href="/logout?d={{.Domain}}">out</a>{{end}}
@@ -45,6 +45,7 @@
 	<h2>Most recent <small>(<a href="/{{.Domain}}/list">all posts</a>)</small></h2>
 	<ul>
 		{{range .Files}}
+		
 		<li>
 			
 			<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
@@ -92,7 +93,7 @@
 	<p>This site uses <a href="https://en.wikipedia.org/wiki/HTTP_cookie">cookies</a>. By using this site you agree to the use of cookies.</p>
 	</small>
 	{{ end }}
-</div>
+</main>
 
 <div id="id01" class="modal">
   

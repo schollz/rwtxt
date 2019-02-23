@@ -1,5 +1,5 @@
 {{template "header" .}}
-<div class="main" class="fonty">
+<main>
     <span class="fr">
         <a href="/{{.Domain}}">Back</a>
         <br>{{ if .SignedIn}}
@@ -14,5 +14,5 @@
         <blockquote><em>{{.DataHTML}}</em></blockquote>
     </p>
     {{end}}
-</div>
+</main>
 {{template "footer" .}}

@@ -24,99 +24,187 @@
     <meta name="msapplication-TileImage" content="/static/img/favicon/ms-icon-144x144.png">
     <meta name="theme-color" content="#375EAB">
 <style>
-[contenteditable]:focus {
-    outline: 0px solid transparent;
+/* main is the main content */
+main {
+    background: rgb(253, 253, 253);
+    margin: 1em auto;
+    /* max-width: 36em; */
+    max-width: 500px;
+    font-size: 1em;
+    font-family: "Times New Roman", Times, serif;
+    /* font-family: -apple-system, BlinkMacSystemFont, 'avenir next', avenir, helvetica, 'helvetica neue', ubuntu, roboto, noto, 'segoe ui', arial, sans-serif; */
+    /* -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility; */
+    /* letter-spacing: .006em; */
+}
+p {
+    line-height: 1.25em;
+}
+sup {
+    line-height: 0em;
+    font-size: 0.7em;
 }
 
+ /* post modern feel */
+/* p,h1,h2,h3,h4,h5,ul,ol {
+	text-transform:lowercase;
+} */
 
+/* set all the paragraphs to 0 so we can keep headings  right on top */
 * {
     margin: 0;
 }
 
-body {
-    background: rgb(253, 253, 253);
-    margin: 1em;
-}
-
-p,ul {
+/* put a bottom margin on things that end */
+figure,p,ul,ol,pre,hr {
     margin-bottom: 1.1em;
 }
-
 h1,h2,h3,h4,h5 {
+    line-height: 1.25;
     margin-bottom: 0.2em;
 }
-
-.main {
-    margin: 1em auto;
-    max-width: 32em;
+h2,h3,h4,h5 {
+    margin-top: 1em;
 }
-
 h1 {
-    font-size: 1.5rem;
+    font-size: 1.6em;
+    letter-spacing: .004em
 }
-
 h2 {
-    font-size:1.45rem;
+    font-size: 1.3em;
+    letter-spacing: .009em
 }
-
 h3 {
-    font-size:1.4rem;
+    font-size: 1.2em;
+    letter-spacing: .009em
 }
-
 h4 {
-    font-size:1.35rem;
+    font-weight: 600;
+    font-size: 1.1em;
 }
-
 h5 {
-    font-size:1.3rem;
+    font-weight: 600;
+    font-size: 1.05em;
 }
-
-h6 {
-    font-size:1.3rem;
+blockquote {
+  margin: 1.5em 1em;
+  font-style: italic;
+  quotes: "\201C" "\201D" "\2018" "\2019";
 }
-
-
-h2 {
-    margin-top: 1.5em;
-}
-
 a {
-    /* border-bottom: 0.5px solid #0000FF;*/
     color: #0000FF;
     text-decoration: none;
     cursor: pointer;
 }
-
-.main,
-textarea {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 1.3rem;
-    line-height: 1.3;
-    background: rgb(253, 253, 253);
+/** from github css **/
+code {
+  background-color: rgba(27,31,35,.05);
+  border-radius: 3px;
+  font-size: 85%;
+  margin: 0;
+  padding: .2em .4em;
+}
+pre {
+  word-wrap: normal;
+  background-color: #f6f8fa;
+  border-radius: 3px;
+  font-size: 85%;
+  line-height: 1.45;
+  overflow: auto;
+  padding: 16px;
+}
+pre code {
+  background-color: transparent;
+  border: 0;
+  display: inline;
+  line-height: inherit;
+  margin: 0;
+  max-width: auto;
+  overflow: visible;
+  padding: 0;
+  word-wrap: normal;
+}
+pre>code {
+  background: transparent;
+  border: 0;
+  font-size: 100%;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  word-break: normal;
 }
 
-textarea {
+/* enforce margins on small screens */
+
+@media screen and (min-width: 0em) and (max-width: 30em) {
+    .main {
+        margin-left: 0.1em;
+        margin-right: 0.1em;
+    }
+}
+
+@media screen and (min-width: 30em) and (max-width: 60em) {
+    .main {
+        margin-left: 1em;
+        margin-right: 1em;
+    }
+}
+
+
+img {
     width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
-    border: 0;
-    border: none;
-    outline: none;
-    -webkit-box-shadow: none;
-    -moz-box-shadow: none;
-    box-shadow: none;
-    resize: none;
+}
+figcaption {
+    color: #777;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/** flex list **/
+.list>div {
+    grid-template-columns: 1fr min-content;
+    display: grid;
+    grid-column-gap: 5px;
+    padding-top: 5px;
+}
+.list>div div {
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+}
+.list>div div:last-child {
+    padding-right: .25em;
+    color: #888;
+    font-size: 90%;
+    padding-top: 1px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.012em;
+}
+.list a {
+    text-decoration: none;
 }
 
-li {
-    line-height: 140%;
+
+/** helper classes **/
+.fr {
+    float: right;
 }
 
+.icons {
+    float: right;
+    position: fixed;
+    top: 1em;
+    right: 1em;
+    display: none;
+}
+
+
+
+#editlink:hover {
+    cursor: pointer;
+}
 .smaller {
-    font-size: 70%;
+   font-size: 70%;
 }
 
 .grayed {
@@ -133,64 +221,29 @@ a.grayed {
     color: #aaa; 
 }
 
-pre {
-    white-space: pre-wrap;
-    /* css-3 */
-    white-space: -moz-pre-wrap;
-    /* Mozilla, since 1999 */
-    white-space: -pre-wrap;
-    /* Opera 4-6 */
-    white-space: -o-pre-wrap;
-    /* Opera 7 */
-    word-wrap: break-word;
-    /* Internet Explorer 5.5+ */
+/* rwtxt specific */
+
+
+textarea {
+    background: rgb(253, 253, 253);
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    border: 0;
+    border: none;
+    outline: none;
+    -webkit-box-shadow: none;
+    -moz-box-shadow: none;
+    box-shadow: none;
+    resize: none;
+    overflow: hidden;
 }
 
-code {
-    font-size: 90%;
-    font-family: "Courier New", Courier, monospace;
+[contenteditable]:focus {
+    outline: 0px solid transparent;
 }
-
-.fr {
-    float: right;
-}
-
-.icons {
-    float: right;
-    position: fixed;
-    top: 1em;
-    right: 1em;
-    display: none;
-}
-
-#editlink:hover {
-    cursor: pointer;
-}
-
-@media screen and (min-width: 0em) and (max-width: 30em) {
-    textarea,
-    .main {
-        font-size: 1.1rem;
-    }
-    .main {
-        margin-left: 0.1em;
-        margin-right: 0.1em;
-    }
-}
-
-@media screen and (min-width: 30em) and (max-width: 60em) {
-    textarea,
-    .main {
-        font-size: 1.2rem;
-    }
-    .main {
-        margin-left: 1em;
-        margin-right: 1em;
-    }
-}
-
-/* 
-snackbar */
 
 #snackbar {
     visibility: hidden;
@@ -395,10 +448,10 @@ span.psw {
        width: 100%;
     }
 }</style>
-    {{if .Languages}}<link rel="stylesheet" type="text/css" href="/static/css/prism.css">{{end}}
+
+{{if .Languages}}<link rel="stylesheet" type="text/css" href="/static/css/prism.css">{{end}}
 
 </head>
 
 <body>
-    
 {{end}}
