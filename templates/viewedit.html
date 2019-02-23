@@ -31,7 +31,9 @@
 <textarea class="fonty" id="editable" style="-webkit-user-select:text;{{if not .EditOnly}}display:none;{{end}}" rows={{ .Rows }} placeholder="Click here and start writing" autofocus>{{.File.Data}}</textarea>
 </form>
 </main>
+{{ if (eq .Domain "public") }}
 <div id="snackbar">Write markdown, reload page when you are done!</div>
+{{ end }}
 
 <script>
     window.rwtxt = {

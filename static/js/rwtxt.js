@@ -202,8 +202,10 @@ if (getParameterByName("edit") != null) {
 
 function showMessage() {
     var x = document.getElementById("snackbar");
-    x.className = "show";
-    setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+    if (x != null) {
+        x.className = "show";
+        setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+    }
 }
 
 
