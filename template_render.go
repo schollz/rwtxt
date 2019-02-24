@@ -386,7 +386,6 @@ func (tr *TemplateRender) handleLogin(w http.ResponseWriter, r *http.Request) (e
 
 func (tr *TemplateRender) handleLoginUpdate(w http.ResponseWriter, r *http.Request) (err error) {
 	tr.SignedIn, tr.DomainKey, tr.DefaultDomain, tr.DomainList, tr.DomainKeys = tr.rwt.isSignedIn(w, r, r.FormValue("domain"))
-
 	if !tr.SignedIn {
 		domain := r.FormValue("domain")
 		if domain == "" {
@@ -537,6 +536,7 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
+	log.Debugf("many: %+v", many)
 	log.Debugf("checked havepage %s", time.Since(timerStart))
 
 	initialMarkdown := ""
@@ -556,26 +556,29 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 	showRaw := r.URL.Query().Get("raw") != ""
 	log.Debugf("raw page: '%v'", showRaw)
 
-	trBytes, err := tr.rwt.fs.GetCacheHTML(pageID)
-	if err == nil {
-		err = json.Unmarshal(trBytes, &tr)
-		if err != nil {
-			log.Error(err)
-		} else {
-			log.Debug("using cache")
-			if showRaw {
+	if !many {
+		var trBytes []byte
+		trBytes, err = tr.rwt.fs.GetCacheHTML(pageID)
+		if err == nil {
+			err = json.Unmarshal(trBytes, &tr)
+			if err != nil {
+				log.Error(err)
+			} else {
+				log.Debug("using cache")
+				if showRaw {
+					w.Header().Set("Content-Encoding", "gzip")
+					w.Header().Set("Content-Type", "text/plain")
+					gz := gzip.NewWriter(w)
+					defer gz.Close()
+					_, err = gz.Write([]byte(tr.File.Data))
+					return
+				}
 				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Set("Content-Type", "text/plain")
+				w.Header().Set("Content-Type", "text/html")
 				gz := gzip.NewWriter(w)
 				defer gz.Close()
-				_, err = gz.Write([]byte(tr.File.Data))
-				return
+				return tr.rwt.viewEditTemplate.Execute(gz, tr)
 			}
-			w.Header().Set("Content-Encoding", "gzip")
-			w.Header().Set("Content-Type", "text/html")
-			gz := gzip.NewWriter(w)
-			defer gz.Close()
-			return tr.rwt.viewEditTemplate.Execute(gz, tr)
 		}
 	}
 
