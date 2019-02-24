@@ -10,63 +10,132 @@
 	<p style="color:red;"><em>{{.}}</em></p>
 	{{end}}
 
-	<h1>{{if eq .Domain "public"}}Welcome{{else}}{{.Domain}}{{end}}</h1>
+	<h1>
+		{{if eq .Domain "public"}}
+			Welcome
+		{{else}}
+			{{ if .Options.CustomTitle }}
+				{{ .Options.CustomTitle }}
+			{{ else }}
+				{{.Domain}}
+			{{ end }}
+		{{end}}
+	</h1>
 	
+	<!-- intro text -->
+
 	{{if and (eq .Domain "public") (not .PrivateEnvironment)}}
 	<p>This is <em><a href="/rwtxt/about">rwtxt</a></em>, a space for <em>reading and writing text</em> which you can use	as a blog, a pastebin, or a notepad.
 	</p>
 	{{end}}
 
-	<p>This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
-	
-	{{if .DomainExists}}
-	{{if eq .Domain "public"}}Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>. If you want to keep reading and writing to yourself, then you can <a onclick="document.getElementById('id01').style.display='block'">login to your own domain</a>.{{else}}
-	{{ if .SignedIn}}Only you can edit pages, since you are are logged in (log out
-		<a href="/logout?d={{.Domain}}">here</a>). 
-	{{if .DomainIsPrivate}}
-	Only you can view pages, since your domain is private.
-	{{else}}
-	Anyone can view pages, since your domain is public.
-	{{end}}
-		{{else}}You are not logged in and cannot edit {{ if .DomainIsPrivate}} or view {{end}}pages. <a href="/public">Go back </a> to the public domain.{{end}}{{end}}</p>
 
-		{{ if gt (len .DomainList) 1 }}
-		<p>You are currently signed into {{ range $index, $element := .DomainList}}{{if $index}}, {{end}}<a href="/{{$element}}">{{$element}}</a>{{end}} domains. You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.</p>
-		{{ end}}
+	<p>
+		
+		{{ if .Options.CustomIntro }}
+			{{.CustomIntro}}
+		{{ else }}
+		This is the <strong>{{.Domain}}</strong> domain, each page will begin with <code>/{{.Domain}}</code>.
+		{{ end }}
+	{{if .DomainExists}}
+		{{ if .Options.CustomIntro }}{{else}}
+			{{if eq .Domain "public"}}
+				Anyone can view, edit, or <a href="/{{.Domain}}/{{.RandomUUID}}">create a page</a>. 
+				If you want to keep reading and writing to yourself, then you can <a onclick="document.getElementById('id01').style.display='block'">login to your own domain</a>.
+			{{else}}
+				{{ if .SignedIn}}
+					Only you can edit pages, since you are are logged in (log out <a href="/logout?d={{.Domain}}">here</a>). 
+					{{if .DomainIsPrivate}}
+						Only you can view pages, since your domain is private.
+					{{else}}
+						Anyone can view pages, since your domain is public.
+					{{end}}
+				{{else}}
+					You are not logged in and cannot edit {{ if .DomainIsPrivate}} or view {{end}}pages. <a href="/public">Go back </a> to the public domain.
+				{{end}}
+			{{end}}
+		{{end}}
+	</p>
+		{{ if .Options.CustomIntro }}{{else}}
+			{{ if gt (len .DomainList) 1 }}
+			<p>You are currently signed into {{ range $index, $element := .DomainList}}{{if $index}}, {{end}}<a href="/{{$element}}">{{$element}}</a>{{end}} domains. You can still <a onclick="document.getElementById('id01').style.display='block'">log in</a> to other domains.</p>
+			{{ end}}
+		{{end}}
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (or (ne .Domain "public") (.PrivateEnvironment)) }}
-	<p>
+		{{ if .Options.ShowSearch}}
 		<form action="/{{.Domain}}" method="get">
 			<input type="text" name="q" value="" size="35" placeholder="Search domain...">
 			<input class="button1" type="submit" value="Search">
 		</form>
-	</p>
+		{{ end }}
+
+
+	{{ if .AllFiles }}
+		<div class="list">
+			<div>
+				<div>
+						<h2>Posts</h2>
+				</div>
+				<div class="keeplow">
+						Created
+				</div>
+			</div>
+			{{range .AllFiles}}
+			<div>
+				<div>
+						<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
+				</div>
+				<div>
+						{{.CreatedDate $.UTCOffset }}
+				</div>
+			</div>
+			{{end}}
+		</div>
+	{{end}}
+
 	{{ if .Files }}
-	<h2>Most recent <small>(<a href="/{{.Domain}}/list">all posts</a>)</small></h2>
+
 	<div class="list">
+		<div>
+			<div>
+				<h2>Most recent <small>(<a href="/{{.Domain}}/list">all posts</a>)</small></h2>
+			</div>
+			<div  class="keeplow">
+					Last modified
+			</div>
+		</div>
 		{{range .Files}}
 		<div>
 			<div>
 					<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
 			</div>
 			<div>
-					{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}
+					{{.ModifiedDate $.UTCOffset }}
 			</div>
 		</div>
 		{{end}}
 	</div>
 	{{end}}
 	
-	{{ $length := len .MostActiveList }}{{ if ge $length 8 }}
-	<h2>Most edited</h2>
+	{{ if .MostActiveList }}
+	
 	<div class="list">
+			<div>
+					<div>
+							<h2>Most edited</h2>
+					</div>
+					<div  class="keeplow">
+							Last modified
+					</div>
+			</div>
 			{{range .MostActiveList}}
 			<div>
 				<div>
 						<a href="/{{$.Domain}}/{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{.Slug}}{{end}}">{{if eq (len .Slug) 0}}{{.ID}}{{else}}{{replace .Slug "-" " "}}{{end}}</a>
 				</div>
 				<div>
-						{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset }}{{else}}{{.ModifiedDate $.UTCOffset }}{{end}}
+						{{.ModifiedDate $.UTCOffset }}
 				</div>
 			</div>
 			{{end}}
@@ -79,8 +148,17 @@
 	<details>
 	<summary>Options</summary>
 		  <form action="/update" method="post">
-		  <input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
-		  <input type="password" name="password" value="" placeholder="Update password">
+			<input type="checkbox" name="ispublic" {{if not .DomainIsPrivate}}checked{{end}}> Make domain public <small>(your posts appear on public page and are searchable)</small><br>
+			<input type="checkbox" name="showsearch" {{if .Options.ShowSearch}}checked{{end}}> Show search box<br>
+			# of recently created to show: <input type="number" name="created" min="0" max="1000" style=" width: 5em;" value="{{.Options.LastCreated}}"><br>
+			# of recently edited to show: <input type="number" name="recent" min="0" max="1000" style=" width: 5em;" value="{{.Options.MostRecent}}"><br>
+			# of most edited to show: <input type="number" name="edited" min="0" max="1000" style=" width: 5em;" value="{{.Options.MostEdited}}"><br>			
+			Custom title: <input type="text" name="title" value="{{.Options.CustomTitle}}"><br>
+			Custom Intro:<br>
+			<textarea name="intro" rows="4" cols="50">{{.Options.CustomIntro}}</textarea><br>
+			Custom CSS:<br>
+			<textarea name="css" rows="4" cols="50">{{.Options.CSS}}</textarea> 
+			<input type="password" name="password" value="" placeholder="Update password">
 		  <input type="text" name="domain_key" value="{{.DomainKey}}" style="display:none;">
 		  <input type="text" name="domain" value="{{.Domain}}" style="display:none;">
 		  <input class="button1" type="submit" value="Submit">
@@ -107,7 +185,7 @@
 	<form class="modal-content animate" action="/login" method="post">
 	  <div class="imgcontainer">
 		<span onclick="document.getElementById('id01').style.display='none'" class="close" title="Close Modal">&times;</span>
-		<img src="/static/img/logo.png" alt="Avatar" class="avatar">
+		<!-- <img src="/static/img/logo.png" alt="Avatar" class="avatar"> -->
 	  </div>
   
 	  <div class="container">
