@@ -43,10 +43,13 @@ type File struct {
 }
 
 type DomainOptions struct {
-	Hipster        bool
-	ShowMostRecent bool
-	ShowMostEdit   bool
-	ShowAll        bool
+	MostEdited  int
+	MostRecent  int
+	LastCreated int
+	CSS         string
+	CustomIntro string
+	CustomTitle string
+	ShowSearch  bool
 }
 
 func formattedDate(t time.Time, utcOffset int) string {
@@ -140,17 +143,8 @@ func (fs *FileSystem) InitializeDB(dump bool) (err error) {
 		id INTEGER NOT NULL PRIMARY KEY,
 		name TEXT,
 		hashed_pass TEXT,
-		ispublic INTEGER DEFAULT 0
-	);`
-	_, err = fs.DB.Exec(sqlStmt)
-	if err != nil {
-		err = errors.Wrap(err, "creating domains table")
-	}
-
-	sqlStmt = `CREATE TABLE IF NOT EXISTS 
-	domain_options (
-		id INTEGER NOT NULL PRIMARY KEY,
-		data BLOB
+		ispublic INTEGER DEFAULT 0,
+		options BLOB
 	);`
 	_, err = fs.DB.Exec(sqlStmt)
 	if err != nil {
@@ -248,10 +242,10 @@ func (fs *FileSystem) InitializeDB(dump bool) (err error) {
 		err = errors.Wrap(err, "creating index")
 	}
 
-	domainid, _, _, _ := fs.getDomainFromName("public")
+	domainid, _, _, _, _ := fs.getDomainFromName("public")
 	if domainid == 0 {
 		fs.setDomain("public", "")
-		fs.UpdateDomain("public", "", true)
+		fs.UpdateDomain("public", "", true, DomainOptions{})
 	}
 
 	if dump {
@@ -295,69 +289,6 @@ func (fs *FileSystem) NewFile(slug, data string) (f File) {
 		Created:  time.Now().UTC(),
 		Modified: time.Now().UTC(),
 		Data:     data,
-	}
-	return
-}
-
-// GetOptions will return the domain options
-func (fs *FileSystem) GetOptions(domainid int) (options DomainOptions, err error) {
-	fs.Lock()
-	defer fs.Unlock()
-
-	stmt, err := fs.DB.Prepare("SELECT data FROM domain_options WHERE id = ?")
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	var b []byte
-	err = stmt.QueryRow(domainid).Scan(&b)
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal(b, &options)
-	return
-}
-
-// SaveOptions will save a blob
-func (fs *FileSystem) SaveOptions(domainid int, options DomainOptions) (err error) {
-	fs.Lock()
-	defer fs.Unlock()
-
-	b, err := json.Marshal(options)
-	if err != nil {
-		return
-	}
-
-	tx, err := fs.DB.Begin()
-	if err != nil {
-		return errors.Wrap(err, "begin SaveOptions")
-	}
-	stmt, err := tx.Prepare(`
-	INSERT OR REPLACE INTO
-		domain_options
-	(
-		id,
-		data
-	) 
-		VALUES 	
-	(
-		?,
-		?
-	)`)
-	if err != nil {
-		return errors.Wrap(err, "stmt SaveOptions")
-	}
-	_, err = stmt.Exec(
-		domainid, b,
-	)
-	if err != nil {
-		return errors.Wrap(err, "exec SaveOptions")
-	}
-	defer stmt.Close()
-	err = tx.Commit()
-	if err != nil {
-		return errors.Wrap(err, "commit SaveOptions")
 	}
 	return
 }
@@ -675,7 +606,7 @@ func (fs *FileSystem) Save(f File) (err error) {
 	if f.Domain == "" {
 		f.Domain = "public"
 	}
-	domainid, _, _, _ := fs.getDomainFromName(f.Domain)
+	domainid, _, _, _, _ := fs.getDomainFromName(f.Domain)
 	if domainid == 0 {
 		return errors.New("domain does not exist")
 	}
@@ -843,7 +774,7 @@ func (fs *FileSystem) SetKey(domain, password string) (key string, err error) {
 	// first check if it is a domain
 	fs.Lock()
 	defer fs.Unlock()
-	domainid, err := fs.validateDomain(domain, password)
+	domainid, _, err := fs.validateDomain(domain, password)
 	if err != nil {
 		return
 	}
@@ -1006,7 +937,7 @@ func (fs *FileSystem) SetDomain(domain, password string) (err error) {
 	// first check if it is a domain
 	fs.Lock()
 	defer fs.Unlock()
-	domainid, _, _, _ := fs.getDomainFromName(domain)
+	domainid, _, _, _, _ := fs.getDomainFromName(domain)
 	if domainid != 0 {
 		err = errors.New("domain already exists")
 		return
@@ -1042,12 +973,12 @@ func (fs *FileSystem) setDomain(domain, password string) (err error) {
 	return
 }
 
-func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool) (err error) {
+func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool, options DomainOptions) (err error) {
 	fs.Lock()
 	defer fs.Unlock()
 
 	// first check if it is a domain
-	domainid, _, _, _ := fs.getDomainFromName(domain)
+	domainid, _, _, _, _ := fs.getDomainFromName(domain)
 	if domainid == 0 {
 		err = errors.New("domain does not exist")
 		return
@@ -1065,15 +996,18 @@ func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool) (err 
 		return errors.Wrap(err, "begin Save")
 	}
 
+	bOptions, _ := json.Marshal(options)
+
 	if password == "" {
 		stmt, err = tx.Prepare(`UPDATE domains 
 		SET 
-		ispublic = ?
+		ispublic = ?,
+		options = ?
 		WHERE name = ?`)
 		if err != nil {
 			return errors.Wrap(err, "stmt Save")
 		}
-		_, err = stmt.Exec(isPublicValue, domain)
+		_, err = stmt.Exec(isPublicValue, bOptions, domain)
 		if err != nil {
 			return errors.Wrap(err, "exec Save")
 		}
@@ -1085,12 +1019,13 @@ func (fs *FileSystem) UpdateDomain(domain, password string, ispublic bool) (err 
 		stmt, err = tx.Prepare(`UPDATE domains 
 		SET 
 		hashed_pass = ?, 
-		ispublic = ?
+		ispublic = ?,
+		options = ?
 		WHERE name = ?`)
 		if err != nil {
 			return errors.Wrap(err, "stmt Save")
 		}
-		_, err = stmt.Exec(hashedPassword, isPublicValue, domain)
+		_, err = stmt.Exec(hashedPassword, isPublicValue, bOptions, domain)
 		if err != nil {
 			return errors.Wrap(err, "exec Save")
 		}
@@ -1206,16 +1141,16 @@ func (fs *FileSystem) GetCacheHTML(id string, noCheckLastModified ...bool) (tr [
 }
 
 // ValidateDomain returns the domain id or an error if the password doesn't match or if the domain doesn't exist
-func (fs *FileSystem) ValidateDomain(domain, password string) (domainid int, err error) {
+func (fs *FileSystem) ValidateDomain(domain, password string) (domainid int, options DomainOptions, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	return fs.validateDomain(domain, password)
 }
 
 // ValidateDomain returns the domain id or an error if the password doesn't match or if the domain doesn't exist
-func (fs *FileSystem) validateDomain(domain, password string) (domainid int, err error) {
+func (fs *FileSystem) validateDomain(domain, password string) (domainid int, options DomainOptions, err error) {
 	domain = strings.ToLower(domain)
-	domainid, hashedPassword, _, err := fs.getDomainFromName(domain)
+	domainid, hashedPassword, _, options, err := fs.getDomainFromName(domain)
 	if domainid == 0 {
 		err = errors.New("domain " + domain + " does not exist")
 		return
@@ -1231,12 +1166,12 @@ func (fs *FileSystem) validateDomain(domain, password string) (domainid int, err
 }
 
 // GetDomainFromName returns the domain id, throwing an error if it doesn't exist
-func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, ispublic bool, err error) {
+func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, ispublic bool, options DomainOptions, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	domain = strings.ToLower(domain)
 	var ispublicint int
-	domainid, _, ispublicint, err = fs.getDomainFromName(domain)
+	domainid, _, ispublicint, options, err = fs.getDomainFromName(domain)
 	if domainid == 0 {
 		err = errors.New("domain " + domain + " does not exist")
 	}
@@ -1244,9 +1179,9 @@ func (fs *FileSystem) GetDomainFromName(domain string) (domainid int, ispublic b
 	return
 }
 
-func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPassword string, ispublic int, err error) {
+func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPassword string, ispublic int, options DomainOptions, err error) {
 	// prepare statement
-	query := "SELECT id,hashed_pass,ispublic FROM domains WHERE name = ?"
+	query := "SELECT id,hashed_pass,ispublic,options FROM domains WHERE name = ?"
 	stmt, err := fs.DB.Prepare(query)
 	if err != nil {
 		err = errors.Wrap(err, "preparing query: "+query)
@@ -1264,12 +1199,14 @@ func (fs *FileSystem) getDomainFromName(domain string) (domainid int, hashedPass
 	defer rows.Close()
 	for rows.Next() {
 		var an_int64 sql.NullInt64
-		err = rows.Scan(&domainid, &hashedPassword, &an_int64)
+		var b []byte
+		err = rows.Scan(&domainid, &hashedPassword, &an_int64, &b)
 		if err != nil {
 			err = errors.Wrap(err, "getRows")
 			return
 		}
 		ispublic = int(an_int64.Int64)
+		json.Unmarshal(b, &options)
 	}
 	err = rows.Err()
 	if err != nil {

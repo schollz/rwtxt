@@ -205,6 +205,10 @@ figcaption {
     display: none;
 }
 
+.keeplow {
+    margin-top:auto;
+}
+
 
 
 #editlink:hover {
@@ -233,7 +237,7 @@ a.grayed {
 summary {
     margin-bottom: 0.5em;
 }
-textarea {
+.writing {
     font-family: "Times New Roman", Times, serif;
     line-height: 1.25em;
     background: rgb(253, 253, 253);
@@ -260,7 +264,7 @@ and (max-device-width: 480px) {
     body {
         font-size: 1.15em;
     }
-    textarea {
+    .writing {
         font-size: 1em;
     }
 }
@@ -471,7 +475,10 @@ span.psw {
     .cancelbtn {
        width: 100%;
     }
-}</style>
+}
+
+{{ with .CustomCSS}} {{.}}{{end}}
+</style>
 
 {{if .Languages}}<link rel="stylesheet" type="text/css" href="/static/css/prism.css">{{end}}
 
