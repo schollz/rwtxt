@@ -217,6 +217,8 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request) (er
 				if err != nil {
 					log.Debug(err)
 				} else {
+					// erase message
+					tr.Message = ""
 					log.Debugf("last render time: %s, %v", tr.RenderTime, tr.RenderTime.After(latestEntry))
 					if tr.RenderTime.After(latestEntry) {
 						log.Debug("using cache")
