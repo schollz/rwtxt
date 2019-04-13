@@ -20,18 +20,20 @@ var (
 
 func main() {
 	var (
-		err             error
-		export          = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
-		resizeWidth     = flag.Int("resizewidth", -1, "image width to resize on the fly")
-		resizeOnUpload  = flag.Bool("resizeonupload", false, "resize on upload")
-		resizeOnRequest = flag.Bool("resizeonrequest", false, "resize on request")
-		debug           = flag.Bool("debug", false, "debug mode")
-		showVersion     = flag.Bool("v", false, "show version")
-		profileMemory   = flag.Bool("memprofile", false, "profile memory")
-		database        = flag.String("db", "rwtxt.db", "name of the database")
-		listen          = flag.String("listen", ":8152", "interface:port to listen on")
-		private         = flag.Bool("private", false, "private setup (allows listing of public notes)")
-		created         = flag.Bool("created", false, "order by date created rather than date modified")
+		err               error
+		export            = flag.Bool("export", false, "export uploads to {{TIMESTAMP}}-uploads.zip and posts to {{TIMESTAMP}}-posts.zip")
+		resizeWidth       = flag.Int("resizewidth", -1, "image width to resize on the fly")
+		resizeOnUpload    = flag.Bool("resizeonupload", false, "resize on upload")
+		resizeOnRequest   = flag.Bool("resizeonrequest", false, "resize on request")
+		doNotDumpOnStart  = flag.Bool("donotdumponstart", false, "do not dump to gzipped SQL backup on start")
+		doNotDumpOnChange = flag.Bool("donotdumponchange", false, "do not dump on modified database")
+		debug             = flag.Bool("debug", false, "debug mode")
+		showVersion       = flag.Bool("v", false, "show version")
+		profileMemory     = flag.Bool("memprofile", false, "profile memory")
+		database          = flag.String("db", "rwtxt.db", "name of the database")
+		listen            = flag.String("listen", ":8152", "interface:port to listen on")
+		private           = flag.Bool("private", false, "private setup (allows listing of public notes)")
+		orderBy           = flag.Int("orderby", 1, "order by modified (1), slug (2) or created (3)")
 	)
 	flag.Parse()
 
@@ -67,7 +69,7 @@ func main() {
 	dbName = *database
 	defer log.Flush()
 
-	fs, err := db.New(dbName)
+	fs, err := db.New(dbName, *doNotDumpOnStart)
 	if err != nil {
 		panic(err)
 	}
@@ -85,12 +87,13 @@ func main() {
 	}
 
 	config := rwtxt.Config{
-		Bind:            *listen,
-		Private:         *private,
-		ResizeWidth:     *resizeWidth,
-		ResizeOnRequest: *resizeOnRequest,
-		ResizeOnUpload:  *resizeOnUpload,
-		OrderByCreated:  *created,
+		Bind:              *listen,
+		Private:           *private,
+		ResizeWidth:       *resizeWidth,
+		ResizeOnRequest:   *resizeOnRequest,
+		ResizeOnUpload:    *resizeOnUpload,
+		DoNotDumpOnChange: *doNotDumpOnChange,
+		OrderBy:           db.OrderBy(*orderBy),
 	}
 
 	rwt, err := rwtxt.New(fs, config)

@@ -14,7 +14,7 @@
 						<a href="/{{$.Domain}}/{{.ID}}">{{.Slug}}</a>
 				</div>
 				<div>
-						{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset}}{{else}}{{.ModifiedDate $.UTCOffset}}{{end}}
+						{{ if eq $.RWTxtConfig.OrderBy 3}}{{.CreatedDate $.UTCOffset}}{{else}}{{.ModifiedDate $.UTCOffset}}{{end}}
                 </div>
                 {{with .DataHTML}}<blockquote><em>{{.}}</em></blockquote>{{end}}
 			</div>

@@ -71,7 +71,7 @@ func (f File) ModifiedDate(utcOffset int) string {
 // New will initialize a filesystem by creating DB and calling InitializeDB.
 // Callers should ensure "github.com/mattn/go-sqlite3" is imported in some way
 // before calling this so the sqlite3 driver is available.
-func New(name string) (fs *FileSystem, err error) {
+func New(name string, doNotDumpOnStart bool) (fs *FileSystem, err error) {
 	fs = new(FileSystem)
 	if name == "" {
 		err = errors.New("database must have name")
@@ -83,7 +83,8 @@ func New(name string) (fs *FileSystem, err error) {
 	if err != nil {
 		return
 	}
-	err = fs.InitializeDB(true)
+
+	err = fs.InitializeDB(!doNotDumpOnStart)
 	if err != nil {
 		err = errors.Wrap(err, "could not initialize")
 		return
@@ -343,7 +344,7 @@ func (fs *FileSystem) ExportPosts() error {
 	dir := os.TempDir()
 	postPaths := []string{}
 	for _, domain := range domains {
-		files, err := fs.GetAll(domain)
+		files, err := fs.GetAll(domain, OrderByModified)
 		if err != nil {
 			return err
 		}
@@ -1264,8 +1265,16 @@ func (fs *FileSystem) SetSimilar(id string, similarids []string) (err error) {
 	return
 }
 
+type OrderBy int
+
+const (
+	OrderByModified OrderBy = 1 + iota
+	OrderBySlug
+	OrderByCreated
+)
+
 // GetAll returns all the files for a given domain
-func (fs *FileSystem) GetAll(domain string, created ...bool) (files []File, err error) {
+func (fs *FileSystem) GetAll(domain string, orderBy OrderBy) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	q := `SELECT fs.id,fs.slug,fs.created,fs.modified,fts.data,fs.history,fs.views FROM fs 
@@ -1275,10 +1284,16 @@ func (fs *FileSystem) GetAll(domain string, created ...bool) (files []File, err 
 		domains.name = ?
 		AND LENGTH(fts.data) > 0
 	`
-	if len(created) > 0 && created[0] {
+
+	switch orderBy {
+	case OrderByCreated:
+		q += "ORDER BY fs.slug DESC"
+	case OrderBySlug:
 		q += "ORDER BY fs.created DESC"
-	} else {
+	case OrderByModified:
 		q += "ORDER BY fs.modified DESC"
+	default:
+		return nil, errors.New("orderBy not provided")
 	}
 	files, err = fs.getAllFromPreparedQuery(q, domain)
 	for i := range files {
@@ -1300,7 +1315,7 @@ func (fs *FileSystem) GetSimilar(fileid string) (files []File, err error) {
 }
 
 // GetTopX returns the info from a file
-func (fs *FileSystem) GetTopX(domain string, num int, created ...bool) (files []File, err error) {
+func (fs *FileSystem) GetTopX(domain string, num int, orderBy OrderBy) (files []File, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	q := `
@@ -1312,10 +1327,15 @@ func (fs *FileSystem) GetTopX(domain string, num int, created ...bool) (files []
 		AND LENGTH(fts.data) > 0
 
 		`
-	if len(created) > 0 && created[0] {
+	switch orderBy {
+	case OrderByCreated:
+		q += "ORDER BY fs.slug DESC"
+	case OrderBySlug:
 		q += "ORDER BY fs.created DESC"
-	} else {
+	case OrderByModified:
 		q += "ORDER BY fs.modified DESC"
+	default:
+		return nil, errors.New("orderBy not provided")
 	}
 	q += " LIMIT ?"
 	return fs.getAllFromPreparedQuery(q, domain, num)

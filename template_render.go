@@ -271,11 +271,11 @@ func (tr *TemplateRender) handleMain(w http.ResponseWriter, r *http.Request) (er
 		tr.Options.MostRecent = 10
 		tr.Options.MostEdited = 10
 	}
-	tr.Files, err = tr.rwt.fs.GetTopX(tr.Domain, tr.Options.MostRecent, tr.RWTxtConfig.OrderByCreated)
+	tr.Files, err = tr.rwt.fs.GetTopX(tr.Domain, tr.Options.MostRecent, tr.RWTxtConfig.OrderBy)
 	if err != nil {
 		log.Debug(err)
 	}
-	tr.AllFiles, err = tr.rwt.fs.GetAll(tr.Domain, true)
+	tr.AllFiles, err = tr.rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderBy)
 	if err != nil {
 		log.Debug(err)
 	}
@@ -920,7 +920,7 @@ func (tr *TemplateRender) handleExport(w http.ResponseWriter, r *http.Request) (
 		http.Redirect(w, r, "/"+tr.Domain+"?m="+base64.URLEncoding.EncodeToString([]byte("must sign in")), 302)
 		return
 	}
-	files, _ := tr.rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderByCreated)
+	files, _ := tr.rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderBy)
 	for i := range files {
 		files[i].DataHTML = template.HTML("")
 	}

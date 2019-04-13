@@ -31,12 +31,13 @@ type RWTxt struct {
 }
 
 type Config struct {
-	Bind            string // interface:port to listen on, defaults to DefaultBind.
-	Private         bool
-	ResizeWidth     int
-	ResizeOnUpload  bool
-	ResizeOnRequest bool
-	OrderByCreated  bool
+	Bind              string // interface:port to listen on, defaults to DefaultBind.
+	Private           bool
+	ResizeWidth       int
+	ResizeOnUpload    bool
+	ResizeOnRequest   bool
+	DoNotDumpOnChange bool
+	OrderBy           db.OrderBy
 }
 
 func New(fs *db.FileSystem, configUser ...Config) (*RWTxt, error) {
@@ -112,28 +113,30 @@ func templateAssets(s []string, t *template.Template) error {
 }
 
 func (rwt *RWTxt) Serve() (err error) {
-	go func() {
-		lastDumped := time.Now().UTC()
-		for {
-			time.Sleep(120 * time.Second)
-			lastModified, errGet := rwt.fs.LastModified()
-			if errGet != nil {
-				panic(errGet)
-			}
-			if time.Since(lastModified).Seconds() > 3 && time.Since(lastDumped).Seconds() > 10 {
-				log.Debug("dumping")
-				errDelete := rwt.fs.DeleteOldKeys()
-				if errDelete != nil {
-					log.Error(errDelete)
+	if !rwt.Config.DoNotDumpOnChange {
+		go func() {
+			lastDumped := time.Now().UTC()
+			for {
+				time.Sleep(120 * time.Second)
+				lastModified, errGet := rwt.fs.LastModified()
+				if errGet != nil {
+					panic(errGet)
 				}
-				errDump := rwt.fs.DumpSQL()
-				if errDump != nil {
-					log.Error(errDump)
+				if time.Since(lastModified).Seconds() > 3 && time.Since(lastDumped).Seconds() > 10 {
+					log.Debug("dumping")
+					errDelete := rwt.fs.DeleteOldKeys()
+					if errDelete != nil {
+						log.Error(errDelete)
+					}
+					errDump := rwt.fs.DumpSQL()
+					if errDump != nil {
+						log.Error(errDump)
+					}
+					lastDumped = time.Now().UTC()
 				}
-				lastDumped = time.Now().UTC()
 			}
-		}
-	}()
+		}()
+	}
 	log.Infof("listening on %v", rwt.Config.Bind)
 	http.HandleFunc("/", rwt.Handler)
 	return http.ListenAndServe(rwt.Config.Bind, nil)
@@ -276,7 +279,7 @@ Disallow: /`))
 				return
 			}
 
-			files, _ := rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderByCreated)
+			files, _ := rwt.fs.GetAll(tr.Domain, tr.RWTxtConfig.OrderBy)
 			for i := range files {
 				files[i].Data = ""
 				files[i].DataHTML = template.HTML("")
@@ -360,7 +363,7 @@ func (rwt *RWTxt) createPage(domain string) (f db.File) {
 }
 
 func (rwt *RWTxt) addSimilar(domain string, fileid string) (err error) {
-	files, err := rwt.fs.GetAll(domain)
+	files, err := rwt.fs.GetAll(domain, rwt.Config.OrderBy)
 	documents := []string{}
 	ids := []string{}
 	maindocument := ""
