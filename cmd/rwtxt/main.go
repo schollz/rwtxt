@@ -33,7 +33,7 @@ func main() {
 		database          = flag.String("db", "rwtxt.db", "name of the database")
 		listen            = flag.String("listen", ":8152", "interface:port to listen on")
 		private           = flag.Bool("private", false, "private setup (allows listing of public notes)")
-		orderBy           = flag.Int("orderby", 1, "order by modified (1), slug (2) or created (3)")
+		orderBy           = flag.String("orderby", "modified", `order by "modified", "slug" or "created"`)
 	)
 	flag.Parse()
 
@@ -93,7 +93,7 @@ func main() {
 		ResizeOnRequest:   *resizeOnRequest,
 		ResizeOnUpload:    *resizeOnUpload,
 		DoNotDumpOnChange: *doNotDumpOnChange,
-		OrderBy:           db.OrderBy(*orderBy),
+		OrderBy:           db.GetOrderByValue(*orderBy),
 	}
 
 	rwt, err := rwtxt.New(fs, config)

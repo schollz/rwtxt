@@ -1273,6 +1273,19 @@ const (
 	OrderByCreated
 )
 
+func GetOrderByValue(orderBy string) OrderBy {
+	switch orderBy {
+	case "created":
+		return OrderByCreated
+	case "slug":
+		return OrderBySlug
+	case "modified":
+		return OrderByModified
+	default:
+		return OrderByModified
+	}
+}
+
 // GetAll returns all the files for a given domain
 func (fs *FileSystem) GetAll(domain string, orderBy OrderBy) (files []File, err error) {
 	fs.Lock()
@@ -1287,9 +1300,9 @@ func (fs *FileSystem) GetAll(domain string, orderBy OrderBy) (files []File, err 
 
 	switch orderBy {
 	case OrderByCreated:
-		q += "ORDER BY fs.slug DESC"
-	case OrderBySlug:
 		q += "ORDER BY fs.created DESC"
+	case OrderBySlug:
+		q += "ORDER BY fs.slug DESC"
 	case OrderByModified:
 		q += "ORDER BY fs.modified DESC"
 	default:
