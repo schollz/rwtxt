@@ -16,8 +16,8 @@
 				<div>
 						{{ if $.RWTxtConfig.OrderByCreated}}{{.CreatedDate $.UTCOffset}}{{else}}{{.ModifiedDate $.UTCOffset}}{{end}}
                 </div>
-                {{with .DataHTML}}<blockquote><em>{{.}}</em></blockquote>{{end}}
 			</div>
+			{{with .DataHTML}}<blockquote><em>{{.}}</em></blockquote>{{end}}
 			{{end}}
 	</div>
 </main>
