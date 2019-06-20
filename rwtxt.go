@@ -204,6 +204,7 @@ func (rwt *RWTxt) Handle(w http.ResponseWriter, r *http.Request) (err error) {
 		// special path
 		w.Write([]byte(`User-agent: * 
 Disallow: /`))
+		return
 	} else if r.URL.Path == "/favicon.ico" {
 		// TODO
 	} else if r.URL.Path == "/sitemap.xml" {
