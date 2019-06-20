@@ -23,11 +23,11 @@ exec: prereq bundle
 	cd cmd/rwtxt && go build -v --tags "fts4" ${LDFLAGS} && cp rwtxt ../../
 
 run: exec
-	$(GOPATH)/bin/rwtxt
+	./rwtxt
 
 debug: 
 	go get -v --tags "fts4" ${LDFLAGS} ./...
-	$(GOPATH)/bin/rwtxt --debug
+	./rwtxt --debug
 
 dev:
 	rerun make run
