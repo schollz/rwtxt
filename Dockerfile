@@ -5,6 +5,7 @@ COPY . .
 RUN make exec
 
 FROM alpine:latest
+RUN apk add --no-cache tzdata
 VOLUME /data
 EXPOSE 8152
 COPY --from=builder /go/rwtxt/rwtxt /rwtxt
