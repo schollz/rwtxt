@@ -2,9 +2,7 @@ HASH=$(shell git describe --always)
 LDFLAGS=-ldflags "-s -w -X main.Version=${HASH}"
 
 prereq: 
-	go get -d -v github.com/tdewolff/minify/...
 	go install -v github.com/tdewolff/minify/cmd/minify
-	go get -d -v github.com/jteeuwen/go-bindata/...
 	go install -v github.com/jteeuwen/go-bindata/go-bindata
 
 bundle:

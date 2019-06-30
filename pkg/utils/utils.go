@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
+	blackfriday "github.com/russross/blackfriday/v2"
 	"golang.org/x/crypto/bcrypt"
-	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
 
 // ZipFiles will zip files to filename

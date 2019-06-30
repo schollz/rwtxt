@@ -16,7 +16,6 @@ rwtxt
 /*.zip
 /assets
 /bindata.go
-/go.sum
 /vendor
 
 # RWTxt databases
