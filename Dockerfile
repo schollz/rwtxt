@@ -11,4 +11,4 @@ VOLUME /data
 EXPOSE 8152
 COPY --from=builder /go/rwtxt/rwtxt /rwtxt
 ENTRYPOINT ["/rwtxt"]
-CMD ["--db","/data/rwtxt.db"]
+CMD ["--db","/data/rwtxt.db","--resizeonrequest","--resizewidth","600"]
