@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
 	"github.com/schollz/documentsimilarity"
+	log "github.com/schollz/logger"
 	"github.com/schollz/rwtxt/pkg/db"
 	"github.com/schollz/rwtxt/pkg/utils"
 )
