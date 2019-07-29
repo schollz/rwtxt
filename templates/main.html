@@ -64,9 +64,9 @@
 
 	{{ if and (or (not .DomainIsPrivate) (.SignedIn)) (or (ne .Domain "public") (.PrivateEnvironment)) }}
 		{{ if .Options.ShowSearch}}
-		<form action="/{{.Domain}}" method="get">
-			<input type="text" name="q" value="" size="35" placeholder="Search domain...">
-			<input class="button1" type="submit" value="Search">
+		<form class="search" action="/{{.Domain}}" method="get">
+			<input class="search" type="text" name="q" value="" placeholder="Search domain...">
+			<input class="button1 search" type="submit" value="Search">
 		</form>
 		{{ end }}
 

@@ -488,6 +488,27 @@ span.psw {
     }
 }
 
+input.search, button.search {
+	  font: inherit;
+	      &:focus {
+		          outline: none;
+			    }
+}
+
+form.search {
+	  display: flex; 
+	    grid-column: 2;
+}
+
+input.search {
+	  flex-grow: 1;
+	    padding: 0.5em 0.75em;
+}
+
+button.search {
+	  padding: 0.5em 0.75em;
+}
+
 {{ with .CustomCSS}} {{.}}{{end}}
 </style>
 
