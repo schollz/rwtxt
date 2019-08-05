@@ -21,7 +21,7 @@ import (
 
 	"github.com/disintegration/imaging"
 
-	log "github.com/cihub/seelog"
+	log "github.com/schollz/logger"
 	"github.com/schollz/rwtxt/pkg/db"
 	"github.com/schollz/rwtxt/pkg/utils"
 )
