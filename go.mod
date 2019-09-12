@@ -5,11 +5,13 @@ go 1.12
 require (
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/disintegration/imaging v1.6.0
+	github.com/edwvee/exiffix v0.0.0-20190810152521-16aac9658f23
 	github.com/gorilla/websocket v1.4.0
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/microcosm-cc/bluemonday v1.0.2
 	github.com/pkg/errors v0.8.1
 	github.com/russross/blackfriday/v2 v2.0.1
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/schollz/documentsimilarity v1.0.0
 	github.com/schollz/logger v1.0.1
 	github.com/schollz/sqlite3dump v1.2.4

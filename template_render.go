@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/disintegration/imaging"
+	"github.com/edwvee/exiffix"
 
 	log "github.com/schollz/logger"
 	"github.com/schollz/rwtxt/pkg/db"
@@ -764,11 +765,14 @@ func (tr *TemplateRender) handleUploads(w http.ResponseWriter, r *http.Request, 
 				return err
 			}
 
-			img, err := jpeg.Decode(&buf)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return err
-			}
+			// img, err := jpeg.Decode(&buf)
+			// if err != nil {
+			// 	http.Error(w, err.Error(), http.StatusBadRequest)
+			// 	return err
+			// }
+
+			img, format, err := exiffix.Decode(bytes.NewReader(buf.Bytes()))
+			fmt.Println("FMT", format)
 
 			img = imaging.Resize(img, tr.rwt.Config.ResizeWidth, 0, imaging.Lanczos)
 
@@ -837,6 +841,9 @@ func (tr *TemplateRender) handleUpload(w http.ResponseWriter, r *http.Request) (
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return err
 		}
+
+		// img, format, err := exiffix.Decode(file)
+		// fmt.Println("FMT", format)
 
 		img = imaging.Resize(img, tr.rwt.Config.ResizeWidth, 0, imaging.Lanczos)
 
