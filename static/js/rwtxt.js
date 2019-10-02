@@ -8,7 +8,7 @@ const socketOpenListener = (event) => {
     // console.log('Connected');
     document.getElementById("notsaved").style.display = 'none';
     document.getElementById("connectedicon").style.display = 'inline-block';
-    setTimeout(function () {
+    setTimeout(function() {
         document.getElementById("connectedicon").style.display = 'none';
     }, 1000);
 };
@@ -55,23 +55,23 @@ function slugify(text) {
 }
 
 // replace all function
-String.prototype.replaceAll = function (search, replacement) {
+String.prototype.replaceAll = function(search, replacement) {
     var target = this;
     return target.replace(new RegExp(search, 'g'), replacement);
 };
 
 var div = document.getElementById('editable');
-setTimeout(function () {
+setTimeout(function() {
     div.focus();
 }, 0);
 
 var CY = {};
-CY.debounce = function (func, wait, immediate) {
+CY.debounce = function(func, wait, immediate) {
     var timeout;
-    return function () {
+    return function() {
         var context = this,
             args = arguments;
-        var later = function () {
+        var later = function() {
             timeout = null;
             if (!immediate) {
                 func.apply(context, args);
@@ -86,7 +86,7 @@ CY.debounce = function (func, wait, immediate) {
     };
 };
 
-CY.contentEdited = function () {
+CY.contentEdited = function() {
     // console.log('edited');
     var markdown = document.getElementById("editable").value.replaceAll("<br>", "\n");
     var slug = slugify(markdown);
@@ -99,7 +99,7 @@ CY.contentEdited = function () {
     }));
 };
 
-CY.serverResponse = function (jsonString) {
+CY.serverResponse = function(jsonString) {
     var data = JSON.parse(jsonString);
     if (data.message == "unique_slug") {
         var newwindowname = ""
@@ -115,23 +115,23 @@ CY.serverResponse = function (jsonString) {
             document.title = newwindowname + " | " + window.rwtxt.domain;
         }
         document.getElementById("saved").style.display = 'inline-block';
-        setTimeout(function () {
+        setTimeout(function() {
             document.getElementById("saved").style.display = 'none';
         }, 1000);
     } else if (data.message == "not saving") {
         document.getElementById("notsaved").style.display = 'inline-block';
-        setTimeout(function () {
+        setTimeout(function() {
             document.getElementById("notsaved").style.display = 'none';
         }, 1000);
     }
 }
 
-CY.editClick = function (e) {
+CY.editClick = function(e) {
     e.preventDefault();
     CY.loadEditor();
 }
 
-CY.loadEditor = function () {
+CY.loadEditor = function() {
     socketCloseListener();
     d = document.getElementById("rendered")
     d.innerHTML = "";
@@ -148,11 +148,11 @@ document.getElementById("editable").addEventListener('input', CY.debounce(CY.con
 
 // allow tabs
 document.getElementById("editable").onkeydown = function(e) {
-    if(e.keyCode==9 || e.which==9 || e.key == "Tab"){
+    if (e.keyCode == 9 || e.which == 9 || e.key == "Tab") {
         e.preventDefault();
         var s = this.selectionStart;
-        this.value = this.value.substring(0,this.selectionStart) + "\t" + this.value.substring(this.selectionEnd);
-        this.selectionEnd = s+1; 
+        this.value = this.value.substring(0, this.selectionStart) + "\t" + this.value.substring(this.selectionEnd);
+        this.selectionEnd = s + 1;
     }
 }
 
@@ -162,7 +162,7 @@ if (editlink != null) {
 }
 
 
-document.getElementById("editable").addEventListener('focusin', function (e) {
+document.getElementById("editable").addEventListener('focusin', function(e) {
     // console.log('focusin!')
     editor = document.getElementById("editable");
     // console.log('[' + editor.value.trim() + ']');
@@ -172,7 +172,7 @@ document.getElementById("editable").addEventListener('focusin', function (e) {
 })
 
 
-var autoExpand = function (field) {
+var autoExpand = function(field) {
     // Get the computed styles for the element
     var computed = window.getComputedStyle(field);
     // Calculate the height
@@ -184,11 +184,15 @@ var autoExpand = function (field) {
     if (field.style.height != height + 'px') {
         // Reset field height
         field.style.height = 'inherit';
-        field.style.height = height + 'px';    
+        field.style.height = height + 'px';
     }
 };
 
-document.getElementById("editable").addEventListener('input', function (event) {
+document.getElementById("editable").addEventListener('input', function(event) {
+    console.log(event);
+    if (event.inputType == "insertText") {
+        return;
+    }
     autoExpand(event.target);
 }, false);
 
@@ -204,7 +208,7 @@ function showMessage() {
     var x = document.getElementById("snackbar");
     if (x != null) {
         x.className = "show";
-        setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        setTimeout(function() { x.className = x.className.replace("show", ""); }, 3000);
     }
 }
 
@@ -216,8 +220,8 @@ function onUploadFinished(file) {
     var cursorPos = document.getElementById("editable").selectionStart;
     var cursorEnd = document.getElementById("editable").selectionEnd;
     var v = document.getElementById("editable").value;
-    var textBefore = v.substring(0,  cursorPos);
-    var textAfter  = v.substring(cursorPos, v.length);
+    var textBefore = v.substring(0, cursorPos);
+    var textAfter = v.substring(cursorPos, v.length);
     var message = 'uploaded file';
     if (cursorEnd > cursorPos) {
         message = v.substring(cursorPos, cursorEnd);
@@ -227,14 +231,14 @@ function onUploadFinished(file) {
     if (file.type.startsWith("image")) {
         prefix = '!';
     }
-    var extraText = prefix+'['+file.xhr.getResponseHeader("Location").split('filename=')[1]+'](' +
+    var extraText = prefix + '[' + file.xhr.getResponseHeader("Location").split('filename=')[1] + '](' +
         file.xhr.getResponseHeader("Location") +
         ')';
 
     var newLine = "\n"
     document.getElementById("editable").value = (
         textBefore +
-        extraText + 
+        extraText +
         newLine +
         textAfter
     );
@@ -243,29 +247,29 @@ function onUploadFinished(file) {
     // Select the newly-inserted link
     document.getElementById("editable").selectionStart = cursorPos + extraText.length + newLine.length;
     document.getElementById("editable").selectionEnd = cursorPos + extraText.length + newLine.length;
-   // expand textarea
+    // expand textarea
     autoExpand(document.getElementById("editable"));
-   // trigger a save
-   CY.contentEdited();
+    // trigger a save
+    CY.contentEdited();
 }
 
 // if editing, keep focus always on the editable
-window.onclick= function (event) {
+window.onclick = function(event) {
     if (document.getElementById("editable").style.display != "none") {
-       if (event.target.nodeName == "HTML") {
+        if (event.target.nodeName == "HTML") {
             document.getElementById("editable").focus();
-       } 
+        }
     }
 }
 
 if (window.rwtxt.domain_key != "") {
     Dropzone.options.dropzoneForm = {
         clickable: false,
-        maxFilesize:   10  , 
+        maxFilesize: 10,
         init: function initDropzone() {
             this.on("complete", onUploadFinished);
         }
-    };    
+    };
 }
 
 if (window.rwtxt.editonly == "yes") {
