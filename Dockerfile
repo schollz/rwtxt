@@ -1,7 +1,6 @@
 FROM golang:1.14-alpine as builder
 RUN apk add --no-cache git make g++ gzip
 RUN go get -v github.com/jteeuwen/go-bindata/go-bindata
-RUN go get -v github.com/tdewolff/minify/...
 WORKDIR /go/rwtxt
 COPY . .
 RUN make exec
