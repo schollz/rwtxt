@@ -688,6 +688,8 @@ func (tr *TemplateRender) handleViewEdit(w http.ResponseWriter, r *http.Request)
 		slug = f.ID
 	}
 	tr.Title = slug + " | " + domain
+	initialMarkdown = strings.Replace(initialMarkdown, "- [ ]", "- ☐", -1)
+	initialMarkdown = strings.Replace(initialMarkdown, "- [x]", "- 🗹", -1)
 	tr.Rendered = utils.RenderMarkdownToHTML(initialMarkdown)
 	if tr.Options.CSS != "" {
 		tr.CustomCSS = template.CSS(tr.Options.CSS)
