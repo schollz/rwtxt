@@ -22,10 +22,10 @@ exec: prereq bundle
 
 quick: bundle
 	go-bindata -pkg rwtxt -nocompress assets assets/img assets/js assets/css assets/img/favicon
-	cd cmd/rwtxt && go build -v --tags "fts4" ${LDFLAGS} && cp rwtxt ../../
+	go build -v --tags "fts4" ${LDFLAGS} ./cmd/rwtxt
 
-run: build
-	$(GOPATH)/bin/rwtxt
+run: quick
+	./rwtxt
 
 debug: 
 	go get -v --tags "fts4" ${LDFLAGS} ./...
