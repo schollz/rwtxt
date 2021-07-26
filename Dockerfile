@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine as builder
+FROM golang:1.16-alpine as builder
 RUN apk add --no-cache git make g++ gzip
 RUN go get -v github.com/jteeuwen/go-bindata/go-bindata
 WORKDIR /go/rwtxt
